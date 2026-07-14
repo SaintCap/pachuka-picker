@@ -14,38 +14,38 @@
 window.PACHUKA_GAMES = [
   {
     description:
-      "Охота на призраков началась, юный рыцарь! Пора засовывать посох в жужало!",
-    name: "Mistfall Hunter",
-    steamUrl: "https://store.steampowered.com/app/3282300/Mistfall_Hunter/"
+      "Открытый мир, где смерть — твой главный учитель, а каждый босс заставит усомниться в собственных руках. Меж туманных земель ждёт трон... и тот, кто соберёт всё воедино.",
+    name: "ELDEN RING",
+    steamUrl: "https://store.steampowered.com/app/1245620/ELDEN_RING/"
   },
   {
     description:
-      "Ведьмы мы вас не боимся, мы вас расстреляем и вые... ой извините...",
-    name: "Witchfire",
-    steamUrl: "https://store.steampowered.com/app/3156770/Witchfire/"
+      "Город будущего: неон, хром, импланты и цифровой призрак легендарного рокера в твоей голове. Здесь решают не деньги, а стиль.",
+    name: "Cyberpunk 2077",
+    steamUrl: "https://store.steampowered.com/app/1091500/Cyberpunk_2077/"
   },
   {
     description:
-      "Бро, скажи респект радуге, ты ее не ценил и теперь в этой серой дыре собираешься выживать!",
-    name: "Hail to the Rainbow",
-    steamUrl: "https://store.steampowered.com/app/1699230/Hail_to_the_Rainbow/"
+      "Ты — сын владыки подземного царства, и ты очень хочешь сбежать из дома. Каждая смерть — не конец, а новая попытка, а боги Олимпа подкидывают подарки.",
+    name: "Hades",
+    steamUrl: "https://store.steampowered.com/app/1145360/Hades/"
   },
   {
     description:
-      "Кровь, побольше бы мне ее, она тут пригодиться, но похоже не по назначению...",
-    name: "Crisol: Theater of Idols",
-    steamUrl: "https://store.steampowered.com/app/1790930/Crisol_Theater_of_Idols/"
+      "Брось офис и унаследуй ферму. Сажай репу, дружи с соседями, спускайся в шахты — и незаметно потеряй пару сотен часов жизни.",
+    name: "Stardew Valley",
+    steamUrl: "https://store.steampowered.com/app/413150/Stardew_Valley/"
   },
   {
     description:
-      "Я даю тебе фору, отказываюсь от одного измерения, но даже так смогу развалить!",
-    name: "The Last Faith",
-    steamUrl: "https://store.steampowered.com/app/1274600/The_Last_Faith/"
+      "Заброшенная лаборатория, саркастичный искусственный интеллект и устройство, создающее дыры в пространстве. Тебя ждёт торт. Наверное.",
+    name: "Portal 2",
+    steamUrl: "https://store.steampowered.com/app/620/Portal_2/"
   },
   {
     description:
-      "Это что, роботы?! Секс будет жестким, с привкусом металла и контрудара!",
-    name: "Lies of P",
-    steamUrl: "https://store.steampowered.com/app/1627720/Lies_of_P/"
+      "Космические гномы, кирки, пиво и тонны камня. Копай глубже, выполняй контракты корпорации и не забудь успеть на капсулу эвакуации. Rock and Stone!",
+    name: "Deep Rock Galactic",
+    steamUrl: "https://store.steampowered.com/app/548430/Deep_Rock_Galactic/"
   }
 ];
