@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ПАЧУКА // ВЫБОР ИГРЫ</title>
+  <meta name="description" content="Пачука, готов выбирать! Секретный терминал выбора игры." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Russo+One&family=Exo+2:wght@300;400;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="style.css" />
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎮</text></svg>" />
+</head>
+<body>
+  <!-- Фоновые слои -->
+  <canvas id="bg-canvas"></canvas>
+  <canvas id="fx-canvas"></canvas>
+  <div class="grid-floor" aria-hidden="true"></div>
+  <div class="scanlines" aria-hidden="true"></div>
+  <div class="vignette" aria-hidden="true"></div>
+
+  <!-- Кастомный курсор -->
+  <div class="cursor-dot" aria-hidden="true"></div>
+  <div class="cursor-ring" aria-hidden="true"></div>
+
+  <!-- ЭКРАН 1: Главная -->
+  <section id="screen-home" class="screen active">
+    <div class="home-content">
+      <div class="badge">// SECRET GAME TERMINAL v2.077</div>
+      <h1 class="glitch" data-text="ПАЧУКА, ГОТОВ ВЫБИРАТЬ!">ПАЧУКА,&nbsp;ГОТОВ ВЫБИРАТЬ!</h1>
+      <p class="subtitle">Секретный терминал подобрал для тебя игры. Названия зашифрованы — выбирай сердцем.</p>
+      <button id="btn-start" class="btn-neon btn-start" type="button">
+        <span class="btn-glow"></span>
+        <span class="btn-label">▶ НАЧАТЬ ВЫБОР</span>
+      </button>
+      <div class="hint">нажми, если осмелишься</div>
+    </div>
+  </section>
+
+  <!-- ЭКРАН 2: Список описаний -->
+  <section id="screen-list" class="screen">
+    <header class="list-header">
+      <button id="btn-back" class="btn-ghost" type="button">◀ НАЗАД</button>
+      <h2 class="list-title glitch-soft" data-text="ЗАШИФРОВАННЫЕ ДОСЬЕ">ЗАШИФРОВАННЫЕ ДОСЬЕ</h2>
+      <p class="list-sub">Кликни на описание, которое зацепило. Название узнаешь потом ;)</p>
+    </header>
+    <div id="cards" class="cards"></div>
+    <div id="confirm-bar" class="confirm-bar">
+      <button id="btn-confirm" class="btn-neon btn-confirm" type="button">
+        <span class="btn-glow"></span>
+        <span class="btn-label">⚡ ВЫБОР СДЕЛАН</span>
+      </button>
+    </div>
+  </section>
+
+  <!-- ЭКРАН 3: Раскрытие -->
+  <section id="screen-reveal" class="screen">
+    <div class="reveal-content">
+      <div class="reveal-topline">// РАСШИФРОВКА ЗАВЕРШЕНА</div>
+      <div class="reveal-frame">
+        <div class="corner c-tl"></div><div class="corner c-tr"></div>
+        <div class="corner c-bl"></div><div class="corner c-br"></div>
+        <div class="reveal-label">ТВОЯ ИГРА:</div>
+        <h2 id="reveal-name" class="reveal-name"></h2>
+      </div>
+      <a id="reveal-link" class="btn-neon btn-steam" href="#" target="_blank" rel="noopener noreferrer">
+        <span class="btn-glow"></span>
+        <span class="btn-label">🚀 ОТКРЫТЬ В STEAM</span>
+      </a>
+      <button id="btn-again" class="btn-ghost" type="button">↺ выбрать другую</button>
+    </div>
+  </section>
+
+  <div class="flash" id="flash" aria-hidden="true"></div>
+
+  <script src="games.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
