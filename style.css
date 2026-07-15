@@ -95,6 +95,7 @@ body.cursor-hot .cursor-ring {
 .screen {
   position: relative; z-index: 10;
   min-height: 100vh;
+  min-height: 100svh; /* корректная высота на мобильных с плавающей адресной строкой */
   display: none;
   flex-direction: column;
   align-items: center;
@@ -275,7 +276,8 @@ h1.glitch {
 
 .cards {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  /* min(300px, 100%) — на узких экранах карточки не вылезают за край */
+  grid-template-columns: repeat(auto-fit, minmax(min(300px, 100%), 1fr));
   gap: 22px;
   width: 100%;
   max-width: 1100px;
@@ -291,12 +293,31 @@ h1.glitch {
   transform-style: preserve-3d;
   will-change: transform;
   opacity: 0;
-  animation: cardIn .6s cubic-bezier(.2, .9, .3, 1.3) both;
+  animation: cardFlyLeft .7s cubic-bezier(.2, .9, .3, 1.2) both;
 }
-@keyframes cardIn {
-  from { opacity: 0; transform: translateY(36px) scale(.92); filter: blur(4px); }
-  to   { opacity: 1; transform: none; filter: none; }
+.card:nth-child(even) { animation-name: cardFlyRight; }
+
+/* Вылет слева/справа + неоновое «включение» лампы */
+@keyframes cardFlyLeft {
+  0%   { opacity: 0; transform: translateX(-90px) skewX(7deg) scale(.9); filter: blur(10px) brightness(2.4); }
+  45%  { opacity: 1; transform: translateX(6px) skewX(-1.5deg); filter: blur(0) brightness(1.7); }
+  58%  { filter: brightness(.75); }
+  70%  { filter: brightness(1.6); }
+  80%  { filter: brightness(.9); }
+  100% { opacity: 1; transform: none; filter: none; }
 }
+@keyframes cardFlyRight {
+  0%   { opacity: 0; transform: translateX(90px) skewX(-7deg) scale(.9); filter: blur(10px) brightness(2.4); }
+  45%  { opacity: 1; transform: translateX(-6px) skewX(1.5deg); filter: blur(0) brightness(1.7); }
+  58%  { filter: brightness(.75); }
+  70%  { filter: brightness(1.6); }
+  80%  { filter: brightness(.9); }
+  100% { opacity: 1; transform: none; filter: none; }
+}
+
+/* Карточка «прилетела»: снимаем входную анимацию, чтобы выбор/снятие
+   выбора её не перезапускали и карточка не пропадала */
+.card.dealt { opacity: 1; animation: none; }
 .card:hover {
   border-color: rgba(0, 246, 255, .8);
   box-shadow: 0 0 26px rgba(0, 246, 255, .28), inset 0 0 30px rgba(0, 246, 255, .05);
@@ -321,6 +342,7 @@ h1.glitch {
   color: var(--dim);
 }
 .card.selected {
+  opacity: 1; /* .selected перебивает входную анимацию — фиксируем видимость явно */
   border-color: var(--magenta);
   box-shadow: 0 0 34px rgba(255, 43, 214, .5), inset 0 0 40px rgba(255, 43, 214, .08);
   animation: selectedPulse 1.4s ease-in-out infinite;
@@ -413,9 +435,38 @@ body.shake { animation: shake .5s ease; }
 }
 
 /* ---------- Адаптив и доступность ---------- */
+@media (max-width: 900px) {
+  .cards { gap: 18px; }
+}
+
 @media (max-width: 640px) {
+  .screen { padding: 36px 14px; }
+  #screen-list { padding-top: 24px; padding-bottom: 120px; }
+  .list-header { margin-bottom: 24px; }
   .list-header .btn-ghost { position: static; margin-bottom: 16px; }
+  .list-sub { font-size: 13px; }
+  .cards { gap: 14px; }
+  .card { padding: 20px 16px 18px; }
+  .card .card-desc { font-size: 15px; }
+  .btn-neon { padding: 16px 36px; letter-spacing: 2px; }
+  .confirm-bar { padding: 14px 14px 20px; }
+  .confirm-bar .btn-neon { width: 100%; max-width: 440px; text-align: center; }
   .reveal-frame { padding: 30px 20px 28px; }
+  .badge { font-size: 10px; letter-spacing: 2px; padding: 6px 12px; margin-bottom: 20px; }
+  .subtitle { margin-bottom: 34px; }
+}
+
+@media (max-width: 380px) {
+  .btn-neon { padding: 14px 24px; font-size: 15px; }
+  .list-title { letter-spacing: 2px; }
+}
+
+/* Низкие горизонтальные экраны (телефон в ландшафте) */
+@media (max-height: 480px) and (orientation: landscape) {
+  .screen { padding: 24px 16px; }
+  .badge { margin-bottom: 14px; }
+  .subtitle { margin-bottom: 22px; }
+  .grid-floor { height: 34vh; }
 }
 
 @media (prefers-reduced-motion: reduce) {
