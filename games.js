@@ -20,9 +20,9 @@ window.PACHUKA_GAMES = [
   },
   {
     description:
-      "Ведьмы мы вас не боимся, мы вас расстреляем и вые... ой извините...",
-    name: "Witchfire",
-    steamUrl: "https://store.steampowered.com/app/3156770/Witchfire/"
+      "Стрелять, смотреть, стрелять, смотреть, стерлять, стрелять, стреляяяяяять....",
+    name: "Luna Abyss",
+    steamUrl: "https://store.steampowered.com/app/1933000/Luna_Abyss/"
   },
   {
     description:
