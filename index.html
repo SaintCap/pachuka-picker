@@ -32,12 +32,9 @@
 
       <form id="auth-form" class="auth-form" autocomplete="on">
         <label class="auth-field">
-          <span>Логин</span>
+          <span id="auth-username-label">Логин</span>
           <input id="auth-username" type="text" autocomplete="username" required minlength="3" maxlength="20" />
-        </label>
-        <label class="auth-field" id="auth-name-field" hidden>
-          <span>Имя</span>
-          <input id="auth-name" type="text" autocomplete="name" maxlength="30" />
+          <small class="auth-hint" id="auth-username-hint" hidden>Так тебя будет звать терминал — выбирай с душой. Латиница, цифры и «_», 3–20 символов.</small>
         </label>
         <label class="auth-field">
           <span>Пароль</span>

@@ -277,6 +277,15 @@ h1.glitch {
   flex-direction: column;
   gap: 6px;
 }
+/* [hidden] должен побеждать display: flex выше */
+.auth-field[hidden], .auth-hint[hidden] { display: none; }
+
+.auth-hint {
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--dim);
+  letter-spacing: .3px;
+}
 .auth-field span {
   font-family: var(--font-head);
   font-size: 12px;

@@ -5,13 +5,17 @@
 -- → вставить весь файл → Run.
 -- ============================================================
 
--- ---------- 1. Профили пользователей (логин + имя) ----------
+-- ---------- 1. Профили пользователей (логин = никнейм) ----------
+-- username одновременно и логин, и отображаемое имя в интерфейсе.
 create table if not exists public.profiles (
   id uuid primary key references auth.users (id) on delete cascade,
   username text not null unique,
-  name text not null,
   created_at timestamptz not null default now()
 );
+
+-- Миграция для уже существующей базы (если таблица создавалась раньше,
+-- когда была отдельная колонка name). Безопасно выполнять повторно.
+alter table public.profiles drop column if exists name;
 
 alter table public.profiles enable row level security;
 
@@ -77,7 +81,8 @@ create policy "selections: insert own"
 
 -- ============================================================
 -- Готово. После выполнения:
---  - таблица profiles заполняется автоматически при регистрации на сайте;
+--  - таблица profiles заполняется автоматически при регистрации на сайте
+--    (username = логин = никнейм, который видит пользователь);
 --  - таблицу games наполняешь вручную (Table Editor → games → Insert row);
 --  - таблица selections заполняется автоматически при выборе игры.
 -- ============================================================

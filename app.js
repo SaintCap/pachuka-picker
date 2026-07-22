@@ -403,8 +403,8 @@
   const authForm = $("#auth-form");
   const authUsername = $("#auth-username");
   const authPassword = $("#auth-password");
-  const authName = $("#auth-name");
-  const authNameField = $("#auth-name-field");
+  const authUsernameLabel = $("#auth-username-label");
+  const authUsernameHint = $("#auth-username-hint");
   const authError = $("#auth-error");
   const authSubtitle = $("#auth-subtitle");
   const authSubmitLabel = $("#auth-submit-label");
@@ -415,10 +415,10 @@
 
   function setAuthMode(mode) {
     authMode = mode;
-    authNameField.hidden = mode !== "register";
-    authName.required = mode === "register";
+    authUsernameHint.hidden = mode !== "register";
+    authUsernameLabel.textContent = mode === "register" ? "Логин (никнейм)" : "Логин";
     if (mode === "register") {
-      authSubtitle.textContent = "Придумай логин, пароль и имя — и заходи выбирать.";
+      authSubtitle.textContent = "Придумай никнейм и пароль — и заходи выбирать.";
       authSubmitLabel.textContent = "▶ ЗАРЕГИСТРИРОВАТЬСЯ";
       authToggleBtn.textContent = "Уже есть аккаунт? Войти";
       authPassword.autocomplete = "new-password";
@@ -440,14 +440,14 @@
     authError.textContent = "";
   }
 
-  function applyHomeName(name) {
-    const label = (name || "ПАЧУКА").toUpperCase();
+  function applyHomeName(nickname) {
+    const label = (nickname || "ПАЧУКА").toUpperCase();
     const text = `${label}, ГОТОВ ВЫБИРАТЬ!`;
     homeTitle.textContent = text;
     homeTitle.setAttribute("data-text", text);
   }
 
-  async function handleRegister(username, password, name) {
+  async function handleRegister(username, password) {
     const email = usernameToEmail(username);
     const { data, error } = await supabaseClient.auth.signUp({ email, password });
     if (error) {
@@ -466,11 +466,14 @@
       }
       user = signInRes.data.user;
     }
+    /* username сохраняем в том виде, как его ввели: он же используется
+       как никнейм в интерфейсе. Уникальность обеспечивает Supabase Auth
+       (email строится из логина в нижнем регистре). */
     const { error: profileErr } = await supabaseClient
       .from("profiles")
-      .insert({ id: user.id, username: username.toLowerCase(), name });
+      .insert({ id: user.id, username });
     if (profileErr) {
-      throw new Error("Аккаунт создан, но не удалось сохранить имя: " + profileErr.message);
+      throw new Error("Аккаунт создан, но не удалось сохранить профиль: " + profileErr.message);
     }
     return user;
   }
@@ -486,11 +489,14 @@
     currentUser = user;
     const { data: profile, error } = await supabaseClient
       .from("profiles")
-      .select("name")
+      .select("username")
       .eq("id", user.id)
-      .single();
+      .maybeSingle();
     if (error) console.error(error);
-    applyHomeName(profile && profile.name);
+    /* Запасной вариант для старых аккаунтов без строки в profiles:
+       достаём логин из служебного email. */
+    const fallback = (user.email || "").split("@")[0];
+    applyHomeName((profile && profile.username) || fallback);
     authForm.reset();
     show("home");
   }
@@ -506,7 +512,6 @@
 
     const username = authUsername.value.trim();
     const password = authPassword.value;
-    const name = authName.value.trim();
 
     if (!USERNAME_RE.test(username)) {
       showAuthError("Логин: 3–20 символов, латинские буквы/цифры/подчёркивание.");
@@ -516,15 +521,11 @@
       showAuthError("Пароль должен быть не короче 6 символов.");
       return;
     }
-    if (authMode === "register" && !name) {
-      showAuthError("Укажи имя.");
-      return;
-    }
 
     authSubmitBtn.disabled = true;
     try {
       const user = authMode === "register"
-        ? await handleRegister(username, password, name)
+        ? await handleRegister(username, password)
         : await handleLogin(username, password);
       sfx.select();
       await afterAuthSuccess(user);
