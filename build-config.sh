@@ -20,3 +20,10 @@ window.SUPABASE_ANON_KEY = "${SUPABASE_ANON_KEY}";
 EOF
 
 echo "config.js создан."
+
+# Локальная копия supabase-js — основной источник SDK. Без неё сайт
+# будет работать только пока доступны резервные CDN.
+if [ ! -s vendor/supabase.js ]; then
+  echo "ВНИМАНИЕ: vendor/supabase.js отсутствует или пуст." >&2
+  echo "Сайт поднимется только при доступном CDN. Верни файл в репозиторий." >&2
+fi

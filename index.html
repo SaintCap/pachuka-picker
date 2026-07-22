@@ -23,11 +23,49 @@
   <div class="cursor-dot" aria-hidden="true"></div>
   <div class="cursor-ring" aria-hidden="true"></div>
 
+  <!-- Звук можно выключить в любой момент, выбор запоминается -->
+  <button id="btn-sound" class="sound-toggle" type="button"
+          aria-pressed="false" aria-label="Выключить звук">🔊</button>
+
+  <!-- ЭКРАН BOOT: активен до тех пор, пока не проверена сессия.
+       Нужен, чтобы залогиненный пользователь не видел вспышку
+       экрана «ДОСТУП ОГРАНИЧЕН» при каждой перезагрузке. -->
+  <section id="screen-boot" class="screen active">
+    <div class="boot-content">
+      <div class="badge">// SECRET GAME TERMINAL v2.077</div>
+      <p class="boot-status" id="boot-status">УСТАНОВКА СОЕДИНЕНИЯ</p>
+      <div class="boot-bar" aria-hidden="true"><span></span></div>
+      <noscript>
+        <p class="boot-noscript">
+          Для работы терминала нужен JavaScript — включи его в настройках браузера.
+        </p>
+      </noscript>
+    </div>
+  </section>
+
+  <!-- ЭКРАН СБОЯ: показывается, если не поднялся SDK или нет конфигурации.
+       Раньше в этом случае страница просто умирала без объяснений. -->
+  <section id="screen-error" class="screen">
+    <div class="auth-content">
+      <div class="badge badge-alert">// СБОЙ СИСТЕМЫ</div>
+      <h1 class="glitch" data-text="НЕТ СВЯЗИ">НЕТ СВЯЗИ</h1>
+      <p class="subtitle" id="error-text">Не удалось связаться с сервером.</p>
+      <button id="btn-retry" class="btn-neon" type="button">
+        <span class="btn-glow"></span>
+        <span class="btn-label">↻ ПОВТОРИТЬ</span>
+      </button>
+      <p class="error-detail" id="error-detail" hidden></p>
+    </div>
+  </section>
+
   <!-- ЭКРАН 0: Авторизация -->
-  <section id="screen-auth" class="screen active">
+  <section id="screen-auth" class="screen">
     <div class="auth-content">
       <div class="badge">// SECRET GAME TERMINAL v2.077</div>
-      <h1 class="glitch" data-text="ДОСТУП ОГРАНИЧЕН">ДОСТУП&nbsp;ОГРАНИЧЕН</h1>
+      <!-- data-text обязан совпадать с текстом до символа: из него
+           рисуются глитч-слои, и при разных пробелах они переносятся
+           иначе, чем основной заголовок -->
+      <h1 class="glitch" data-text="ДОСТУП&nbsp;ОГРАНИЧЕН">ДОСТУП&nbsp;ОГРАНИЧЕН</h1>
       <p class="subtitle" id="auth-subtitle">Войди по логину и паролю, чтобы продолжить.</p>
 
       <form id="auth-form" class="auth-form" autocomplete="on">
@@ -54,14 +92,17 @@
   <section id="screen-home" class="screen">
     <div class="home-content">
       <div class="badge">// SECRET GAME TERMINAL v2.077</div>
-      <h1 class="glitch" id="home-title" data-text="ПАЧУКА, ГОТОВ ВЫБИРАТЬ!">ПАЧУКА,&nbsp;ГОТОВ ВЫБИРАТЬ!</h1>
+      <h1 class="glitch" id="home-title" data-text="ПАЧУКА, ГОТОВ ВЫБИРАТЬ!">ПАЧУКА, ГОТОВ ВЫБИРАТЬ!</h1>
       <p class="subtitle">Секретный терминал подобрал для тебя игры. Названия зашифрованы — выбирай сердцем.</p>
       <button id="btn-start" class="btn-neon btn-start" type="button">
         <span class="btn-glow"></span>
         <span class="btn-label">▶ НАЧАТЬ ВЫБОР</span>
       </button>
       <div class="hint">нажми, если осмелишься</div>
-      <button id="btn-logout" class="btn-ghost logout-btn" type="button">выйти</button>
+      <div class="home-actions">
+        <button id="btn-history" class="btn-ghost" type="button">◷ мои выборы</button>
+        <button id="btn-logout" class="btn-ghost" type="button">выйти</button>
+      </div>
     </div>
   </section>
 
@@ -70,8 +111,12 @@
     <header class="list-header">
       <h2 class="list-title glitch-soft" data-text="ЗАШИФРОВАННЫЕ ДОСЬЕ">ЗАШИФРОВАННЫЕ ДОСЬЕ</h2>
       <p class="list-sub">Кликни на описание, которое зацепило. Название узнаешь потом ;)</p>
+      <button id="btn-list-back" class="btn-ghost screen-back" type="button">← назад</button>
     </header>
-    <div id="cards" class="cards"></div>
+    <!-- aria-live: содержимое меняется асинхронно (загрузка, ошибка,
+         карточки) — без этого скринридер не узнает о смене состояния -->
+    <div id="cards" class="cards" role="group"
+         aria-label="Зашифрованные досье игр" aria-live="polite"></div>
     <div id="confirm-bar" class="confirm-bar">
       <button id="btn-confirm" class="btn-neon btn-confirm" type="button">
         <span class="btn-glow"></span>
@@ -98,10 +143,25 @@
     </div>
   </section>
 
+  <!-- ЭКРАН 4: История выборов -->
+  <section id="screen-history" class="screen">
+    <header class="list-header">
+      <h2 class="list-title glitch-soft" data-text="АРХИВ ВЫБОРОВ">АРХИВ ВЫБОРОВ</h2>
+      <p class="list-sub">Всё, что ты уже выбрал. Эти игры больше не появятся в досье.</p>
+      <button id="btn-history-back" class="btn-ghost screen-back" type="button">← назад</button>
+    </header>
+    <div id="history-list" class="history-wrap" aria-live="polite"></div>
+  </section>
+
   <div class="flash" id="flash" aria-hidden="true"></div>
 
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <!-- Supabase SDK грузится из src/sdk.js: сначала локальная копия
+       из vendor/, и только если её нет — CDN. Так сайт не превращается
+       в мёртвую страницу, когда jsdelivr недоступен.
+
+       Модули нативные, шага сборки нет — но открывать нужно через
+       http://, а не двойным кликом по файлу (см. README). -->
   <script src="config.js"></script>
-  <script src="app.js"></script>
+  <script type="module" src="src/main.js"></script>
 </body>
 </html>

@@ -23,12 +23,17 @@ html, body {
   overflow-x: hidden;
 }
 
-body { cursor: none; }
-a, button { cursor: none; }
+/* Системный курсор прячем ТОЛЬКО когда скрипт успешно поднялся и рисует
+   свой. Иначе при сбое загрузки JS пользователь остался бы на странице
+   вообще без указателя мыши. */
+body.js-ready { cursor: none; }
+body.js-ready a, body.js-ready button { cursor: none; }
+.cursor-dot, .cursor-ring { display: none; }
+body.js-ready .cursor-dot, body.js-ready .cursor-ring { display: block; }
 
 @media (hover: none), (pointer: coarse) {
-  body, a, button { cursor: auto; }
-  .cursor-dot, .cursor-ring { display: none; }
+  body.js-ready, body.js-ready a, body.js-ready button { cursor: auto; }
+  body.js-ready .cursor-dot, body.js-ready .cursor-ring { display: none; }
 }
 
 ::selection { background: var(--magenta); color: #000; }
@@ -57,11 +62,12 @@ a, button { cursor: none; }
 }
 @keyframes gridMove { from { background-position: 0 0, 0 0, 0 0; } to { background-position: 0 0, 0 0, 0 60px; } }
 
+/* mix-blend-mode: multiply на весь экран заставлял браузер композитить
+   всё дерево заново на каждом кадре канваса. Поверх тёмного фона тот же
+   результат даёт обычная полупрозрачная заливка — но бесплатно. */
 .scanlines {
   position: fixed; inset: 0; z-index: 60; pointer-events: none;
-  background: repeating-linear-gradient(0deg, rgba(0,0,0,.14) 0 1px, transparent 1px 3px);
-  mix-blend-mode: multiply;
-  opacity: .55;
+  background: repeating-linear-gradient(0deg, rgba(0, 0, 0, .30) 0 1px, transparent 1px 3px);
 }
 
 .vignette {
@@ -107,11 +113,6 @@ body.cursor-hot .cursor-ring {
   from { opacity: 0; transform: scale(.96) translateY(24px); filter: blur(6px); }
   to   { opacity: 1; transform: none; filter: none; }
 }
-.screen.leaving { animation: screenOut .3s ease both; }
-@keyframes screenOut {
-  to { opacity: 0; transform: scale(1.04); filter: blur(6px); }
-}
-
 /* ---------- Главная ---------- */
 .home-content { text-align: center; max-width: 900px; }
 
@@ -262,6 +263,170 @@ h1.glitch {
 
 .logout-btn { display: inline-block; margin-top: 30px; }
 
+/* ---------- Фокус с клавиатуры ----------
+   На неоновом фоне системное фокус-кольцо терялось, а карточки — вообще
+   div'ы, по которым было не видно, где ты находишься. :focus-visible
+   показывает рамку только при навигации с клавиатуры, мышь её не ловит. */
+:focus-visible {
+  outline: 2px solid var(--cyan);
+  outline-offset: 3px;
+  border-radius: 6px;
+}
+.card:focus-visible {
+  outline: 2px solid var(--lime);
+  outline-offset: 4px;
+  box-shadow: 0 0 26px rgba(182, 255, 43, .35);
+}
+.btn-neon:focus-visible { outline-color: #fff; outline-offset: 4px; }
+
+/* ---------- Переключатель звука ---------- */
+.sound-toggle {
+  position: fixed; top: 16px; right: 16px; z-index: 70;
+  width: 42px; height: 42px;
+  font-size: 18px; line-height: 1;
+  background: rgba(10, 10, 28, .7);
+  border: 1px solid rgba(0, 246, 255, .3);
+  border-radius: 50%;
+  color: var(--text);
+  transition: border-color .2s ease, box-shadow .2s ease, transform .16s ease;
+}
+.sound-toggle:hover {
+  border-color: var(--cyan);
+  box-shadow: 0 0 16px rgba(0, 246, 255, .4);
+  transform: scale(1.08);
+}
+.sound-toggle[aria-pressed="true"] { opacity: .55; border-color: rgba(139, 147, 201, .35); }
+
+/* ---------- Тосты ---------- */
+.toasts {
+  position: fixed; left: 50%; bottom: 24px; z-index: 95;
+  transform: translateX(-50%);
+  display: flex; flex-direction: column; gap: 10px;
+  width: min(460px, calc(100vw - 28px));
+  pointer-events: none;
+}
+.toast {
+  display: flex; align-items: center; gap: 12px;
+  padding: 14px 16px;
+  background: rgba(12, 12, 30, .96);
+  border: 1px solid rgba(0, 246, 255, .35);
+  border-left-width: 3px;
+  border-radius: 10px;
+  box-shadow: 0 8px 30px rgba(0, 0, 0, .5), 0 0 24px rgba(0, 246, 255, .12);
+  pointer-events: auto;
+  animation: toastIn .28s cubic-bezier(.2, .9, .25, 1.2) both;
+}
+.toast-error { border-color: rgba(255, 43, 214, .5); box-shadow: 0 8px 30px rgba(0,0,0,.5), 0 0 24px rgba(255,43,214,.18); }
+.toast-ok    { border-color: rgba(182, 255, 43, .5); }
+.toast.leaving { animation: toastOut .24s ease both; }
+@keyframes toastIn  { from { opacity: 0; transform: translateY(18px); } }
+@keyframes toastOut { to   { opacity: 0; transform: translateY(10px); } }
+
+.toast-text { flex: 1; font-size: 14px; line-height: 1.45; }
+.toast-action {
+  font-family: var(--font-head);
+  font-size: 12px; letter-spacing: 1px;
+  color: var(--cyan);
+  background: transparent;
+  border: 1px solid rgba(0, 246, 255, .4);
+  border-radius: 7px;
+  padding: 7px 12px;
+  white-space: nowrap;
+}
+.toast-action:hover { background: rgba(0, 246, 255, .12); }
+.toast-close {
+  background: transparent; border: none;
+  color: var(--dim); font-size: 15px; line-height: 1;
+  padding: 4px;
+}
+.toast-close:hover { color: var(--text); }
+
+/* ---------- Архив выборов ---------- */
+.history-wrap { width: 100%; max-width: 720px; }
+.history-items { list-style: none; display: flex; flex-direction: column; gap: 10px; }
+.history-item {
+  display: flex; align-items: center; gap: 16px;
+  padding: 14px 18px;
+  background: linear-gradient(160deg, rgba(20, 18, 48, .8), rgba(10, 10, 28, .8));
+  border: 1px solid rgba(0, 246, 255, .18);
+  border-radius: 12px;
+  transition: border-color .2s ease, box-shadow .2s ease;
+}
+.history-item:hover {
+  border-color: rgba(0, 246, 255, .55);
+  box-shadow: 0 0 20px rgba(0, 246, 255, .18);
+}
+.history-num {
+  font-family: var(--font-head);
+  font-size: 13px; letter-spacing: 2px;
+  color: var(--violet);
+  text-shadow: 0 0 10px rgba(123, 43, 255, .8);
+}
+.history-body { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.history-name {
+  font-family: var(--font-head);
+  font-size: 16px; letter-spacing: 1px;
+  color: var(--text);
+  text-decoration: none;
+}
+.history-name:hover { color: var(--cyan); text-shadow: 0 0 10px rgba(0, 246, 255, .7); }
+.history-date { font-size: 12px; color: var(--dim); }
+
+.screen-back { position: absolute; left: 0; top: 2px; }
+.home-actions { display: flex; gap: 12px; justify-content: center; margin-top: 30px; flex-wrap: wrap; }
+
+/* ---------- Загрузочный экран ---------- */
+.boot-content { text-align: center; max-width: 460px; }
+.boot-status {
+  font-family: var(--font-head);
+  font-size: 14px; letter-spacing: 4px;
+  color: var(--cyan);
+  text-shadow: 0 0 12px rgba(0, 246, 255, .7);
+  margin-bottom: 18px;
+}
+.boot-bar {
+  height: 3px;
+  background: rgba(0, 246, 255, .14);
+  border-radius: 2px;
+  overflow: hidden;
+}
+.boot-bar span {
+  display: block;
+  height: 100%; width: 38%;
+  background: linear-gradient(90deg, transparent, var(--cyan), transparent);
+  box-shadow: 0 0 12px var(--cyan);
+  animation: bootScan 1.15s ease-in-out infinite;
+}
+@keyframes bootScan {
+  from { transform: translateX(-100%); }
+  to   { transform: translateX(300%); }
+}
+.boot-noscript {
+  margin-top: 22px;
+  color: var(--magenta);
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+/* ---------- Экран сбоя ---------- */
+.badge-alert {
+  color: var(--magenta);
+  border-color: rgba(255, 43, 214, .45);
+  text-shadow: 0 0 8px rgba(255, 43, 214, .8);
+}
+#screen-error h1.glitch { font-size: clamp(30px, 6vw, 62px); }
+#screen-error .subtitle { margin-bottom: 34px; }
+.error-detail {
+  margin-top: 26px;
+  font-family: var(--font-body);
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--dim);
+  opacity: .75;
+  word-break: break-word;
+}
+.error-detail[hidden] { display: none; }
+
 /* ---------- Авторизация ---------- */
 .auth-content { text-align: center; max-width: 420px; width: 100%; }
 
@@ -322,7 +487,8 @@ h1.glitch {
 #btn-auth-toggle { margin-top: 22px; }
 
 /* ---------- Список ---------- */
-#screen-list { justify-content: flex-start; padding-top: 36px; padding-bottom: 140px; }
+#screen-list, #screen-history { justify-content: flex-start; padding-top: 36px; padding-bottom: 140px; }
+#screen-history { padding-bottom: 60px; }
 
 .list-header { text-align: center; margin-bottom: 34px; width: 100%; max-width: 1100px; position: relative; }
 .list-title {
@@ -343,6 +509,17 @@ h1.glitch {
   max-width: 1100px;
 }
 
+/* Служебные сообщения в области карточек: загрузка, ошибка, пусто */
+.cards-msg {
+  grid-column: 1 / -1;
+  text-align: center;
+  color: var(--dim);
+  font-size: 16px;
+  line-height: 1.6;
+  padding: 30px 10px;
+}
+.cards-msg .btn-ghost { margin-top: 20px; }
+
 .card {
   position: relative;
   background: linear-gradient(160deg, rgba(20, 18, 48, .92), rgba(10, 10, 28, .92));
@@ -351,7 +528,6 @@ h1.glitch {
   padding: 26px 24px 24px;
   transition: border-color .2s ease, box-shadow .2s ease;
   transform-style: preserve-3d;
-  will-change: transform;
   opacity: 0;
   animation: cardFlyLeft .7s cubic-bezier(.2, .9, .3, 1.2) both;
 }
@@ -381,6 +557,11 @@ h1.glitch {
 .card:hover {
   border-color: rgba(0, 246, 255, .8);
   box-shadow: 0 0 26px rgba(0, 246, 255, .28), inset 0 0 30px rgba(0, 246, 255, .05);
+}
+/* will-change держим только там, где карточку действительно крутит мышь,
+   а не на всех шести постоянно */
+@media (hover: hover) and (pointer: fine) {
+  .card:hover { will-change: transform; }
 }
 .card .card-id {
   font-family: var(--font-head);
@@ -501,8 +682,13 @@ body.shake { animation: shake .5s ease; }
 
 @media (max-width: 640px) {
   .screen { padding: 36px 14px; }
-  #screen-list { padding-top: 24px; padding-bottom: 120px; }
+  #screen-list, #screen-history { padding-top: 24px; padding-bottom: 120px; }
+  /* кнопка «назад» уходит под заголовок, чтобы не наезжать на него */
+  .screen-back { position: static; margin-top: 16px; }
   .list-header { margin-bottom: 24px; }
+  .sound-toggle { top: 10px; right: 10px; width: 38px; height: 38px; font-size: 16px; }
+  .toasts { bottom: 14px; }
+  .history-item { gap: 12px; padding: 12px 14px; }
   .list-sub { font-size: 13px; }
   .cards { gap: 14px; }
   .card { padding: 20px 16px 18px; }

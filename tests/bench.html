@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>ПАЧУКА // бенчмарк отрисовки</title>
+<style>
+  body {
+    margin: 0; padding: 24px;
+    background: #06060f; color: #e8ecff;
+    font-family: system-ui, sans-serif;
+  }
+  h1 { font-size: 20px; margin: 0 0 6px; }
+  p.lead { color: #8b93c9; margin: 0 0 22px; font-size: 14px; line-height: 1.5; max-width: 720px; }
+  .row { display: flex; gap: 18px; flex-wrap: wrap; }
+  .panel { flex: 1 1 320px; }
+  .panel h2 { font-size: 14px; letter-spacing: 1px; margin: 0 0 8px; }
+  .old h2 { color: #ff2bd6; }
+  .new h2 { color: #00f6ff; }
+  canvas { width: 100%; height: 260px; background: #0b0b1e; border-radius: 10px; display: block; }
+  .stat { font-variant-numeric: tabular-nums; margin-top: 8px; font-size: 13px; color: #8b93c9; }
+  .stat b { color: #e8ecff; font-size: 18px; }
+  .verdict {
+    margin-top: 22px; padding: 16px 18px;
+    border: 1px solid rgba(0,246,255,.3); border-radius: 10px;
+    background: rgba(0,246,255,.05); font-size: 15px; line-height: 1.6;
+  }
+  button {
+    margin-top: 18px; font: inherit; font-size: 14px;
+    background: #00f6ff; color: #061018; border: 0;
+    border-radius: 8px; padding: 10px 22px; cursor: pointer;
+  }
+  label { font-size: 13px; color: #8b93c9; margin-left: 14px; }
+  input { width: 70px; font: inherit; background: #12122c; color: #e8ecff;
+          border: 1px solid rgba(0,246,255,.3); border-radius: 6px; padding: 5px 8px; }
+</style>
+</head>
+<body>
+
+<h1>Бенчмарк отрисовки: shadowBlur против спрайтов</h1>
+<p class="lead">
+  Слева — как рисовалось раньше: каждая фигура размывается через
+  <code>ctx.shadowBlur</code> заново на каждом кадре. Справа — как сейчас:
+  ореол один раз запечён в офскрин-канвас, в кадре только
+  <code>drawImage</code>. Нагрузка в обеих панелях одинаковая.
+  Цифры зависят от вашего железа — это и есть смысл замера.
+</p>
+
+<div class="row">
+  <div class="panel old">
+    <h2>БЫЛО — shadowBlur</h2>
+    <canvas id="cv-old"></canvas>
+    <div class="stat"><b id="fps-old">—</b> кадров/с &nbsp;·&nbsp; <span id="ms-old">—</span> мс на кадр</div>
+  </div>
+  <div class="panel new">
+    <h2>СТАЛО — спрайты + lighter</h2>
+    <canvas id="cv-new"></canvas>
+    <div class="stat"><b id="fps-new">—</b> кадров/с &nbsp;·&nbsp; <span id="ms-new">—</span> мс на кадр</div>
+  </div>
+</div>
+
+<div class="verdict" id="verdict">Замер идёт, подождите пару секунд…</div>
+
+<button id="restart">Перезапустить замер</button>
+<label>объектов: <input id="count" type="number" value="600" min="50" max="4000" step="50" /></label>
+
+<script>
+(() => {
+  const HUES = [187, 310, 265, 82];
+  let objects = [];
+  let running = true;
+
+  function setup(canvas) {
+    const dpr = Math.min(devicePixelRatio || 1, 2);
+    canvas.width = Math.round(canvas.clientWidth * dpr);
+    canvas.height = Math.round(canvas.clientHeight * dpr);
+    const ctx = canvas.getContext("2d");
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    return ctx;
+  }
+
+  const cvOld = document.getElementById("cv-old");
+  const cvNew = document.getElementById("cv-new");
+  let ctxOld = setup(cvOld), ctxNew = setup(cvNew);
+
+  function seed(n) {
+    const w = cvOld.clientWidth, h = cvOld.clientHeight;
+    objects = Array.from({ length: n }, () => ({
+      x: Math.random() * w, y: Math.random() * h,
+      vx: (Math.random() - .5) * 1.6, vy: (Math.random() - .5) * 1.6,
+      r: Math.random() * 3 + 1,
+      hue: HUES[(Math.random() * HUES.length) | 0],
+      a: Math.random() * .5 + .5,
+    }));
+  }
+
+  function step() {
+    const w = cvOld.clientWidth, h = cvOld.clientHeight;
+    for (const o of objects) {
+      o.x += o.vx; o.y += o.vy;
+      if (o.x < 0 || o.x > w) o.vx *= -1;
+      if (o.y < 0 || o.y > h) o.vy *= -1;
+    }
+  }
+
+  /* --- СТАРЫЙ способ: shadowBlur на каждую фигуру --- */
+  function drawOld(ctx) {
+    const w = cvOld.clientWidth, h = cvOld.clientHeight;
+    ctx.clearRect(0, 0, w, h);
+    for (const o of objects) {
+      ctx.globalAlpha = o.a;
+      ctx.beginPath();
+      ctx.arc(o.x, o.y, o.r, 0, Math.PI * 2);
+      ctx.fillStyle = `hsl(${o.hue}, 100%, 62%)`;
+      ctx.shadowColor = `hsl(${o.hue}, 100%, 60%)`;
+      ctx.shadowBlur = 12;
+      ctx.fill();
+    }
+    ctx.shadowBlur = 0;
+    ctx.globalAlpha = 1;
+  }
+
+  /* --- НОВЫЙ способ: предзапечённый спрайт --- */
+  const sprites = new Map();
+  function glowSprite(hue, light) {
+    const key = hue + ":" + light;
+    if (sprites.has(key)) return sprites.get(key);
+    const R = 32;
+    const c = document.createElement("canvas");
+    c.width = c.height = R * 2;
+    const g = c.getContext("2d");
+    const grad = g.createRadialGradient(R, R, 0, R, R, R);
+    grad.addColorStop(0,    `hsla(${hue}, 100%, ${Math.min(light + 30, 100)}%, 1)`);
+    grad.addColorStop(0.18, `hsla(${hue}, 100%, ${light}%, .9)`);
+    grad.addColorStop(0.45, `hsla(${hue}, 100%, ${light}%, .28)`);
+    grad.addColorStop(1,    `hsla(${hue}, 100%, ${light}%, 0)`);
+    g.fillStyle = grad;
+    g.fillRect(0, 0, R * 2, R * 2);
+    sprites.set(key, c);
+    return c;
+  }
+
+  function drawNew(ctx) {
+    const w = cvNew.clientWidth, h = cvNew.clientHeight;
+    ctx.clearRect(0, 0, w, h);
+    ctx.globalCompositeOperation = "lighter";
+    for (const o of objects) {
+      ctx.globalAlpha = o.a;
+      const s = o.r * 4;
+      ctx.drawImage(glowSprite(o.hue, 62), o.x - s, o.y - s, s * 2, s * 2);
+    }
+    ctx.globalAlpha = 1;
+    ctx.globalCompositeOperation = "source-over";
+  }
+
+  /* --- Замер: чередуем способы кадр за кадром, чтобы обоим достались
+         одинаковые условия (троттлинг, фоновые задачи и т.п.) --- */
+  const acc = { old: { frames: 0, time: 0 }, new: { frames: 0, time: 0 } };
+
+  function measure(fn, ctx, bucket) {
+    const t0 = performance.now();
+    fn(ctx);
+    // заставляем драйвер действительно выполнить работу
+    ctx.getImageData(0, 0, 1, 1);
+    const dt = performance.now() - t0;
+    bucket.frames++;
+    bucket.time += dt;
+  }
+
+  function report() {
+    const o = acc.old, n = acc.new;
+    if (!o.frames || !n.frames) return;
+    const msO = o.time / o.frames, msN = n.time / n.frames;
+    document.getElementById("ms-old").textContent = msO.toFixed(2);
+    document.getElementById("ms-new").textContent = msN.toFixed(2);
+    document.getElementById("fps-old").textContent = Math.round(1000 / msO);
+    document.getElementById("fps-new").textContent = Math.round(1000 / msN);
+
+    const speedup = msO / msN;
+    const v = document.getElementById("verdict");
+    v.innerHTML =
+      `<b>${objects.length}</b> объектов в кадре. Отрисовка спрайтами быстрее в ` +
+      `<b>${speedup.toFixed(1)}×</b> ` +
+      `(${msO.toFixed(2)} мс против ${msN.toFixed(2)} мс на кадр).<br>` +
+      `Бюджет кадра для 60 fps — 16.7 мс: старый способ ` +
+      (msO > 16.7 ? "<b>не укладывается</b>" : "укладывается") +
+      `, новый ` + (msN > 16.7 ? "<b>не укладывается</b>" : "укладывается") + ".";
+  }
+
+  let flip = 0;
+  function frame() {
+    if (!running) return;
+    step();
+    if (flip++ % 2 === 0) measure(drawOld, ctxOld, acc.old);
+    else measure(drawNew, ctxNew, acc.new);
+    if (flip % 30 === 0) report();
+    requestAnimationFrame(frame);
+  }
+
+  function restart() {
+    acc.old = { frames: 0, time: 0 };
+    acc.new = { frames: 0, time: 0 };
+    ctxOld = setup(cvOld); ctxNew = setup(cvNew);
+    seed(parseInt(document.getElementById("count").value, 10) || 600);
+  }
+
+  document.getElementById("restart").addEventListener("click", restart);
+  addEventListener("resize", restart);
+
+  restart();
+  requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>

@@ -79,7 +79,34 @@ create policy "selections: insert own"
 -- update/delete тоже намеренно без policy: выбор нельзя отменить или
 -- переписать через сайт (только через Table Editor вручную, если понадобится).
 
--- ---------- 4. Права доступа (GRANT) ----------
+-- ---------- 4. Серверная выборка игр ----------
+-- Раньше клиент тянул ВЕСЬ каталог игр и отсеивал выбранное у себя,
+-- а список исключений уезжал строкой в URL запроса — с ростом числа
+-- выборов это раздувало адрес и трафик. Теперь фильтрация и случайный
+-- порядок делаются в Postgres, на клиент приходят ровно нужные строки.
+--
+-- security invoker: функция выполняется от имени вызывающего,
+-- поэтому RLS-политики продолжают действовать, и auth.uid() внутри
+-- возвращает того самого пользователя, который делает запрос.
+create or replace function public.get_available_games(p_limit int default 6)
+returns setof public.games
+language sql
+security invoker
+stable
+as $$
+  select g.*
+  from public.games g
+  where not exists (
+    select 1
+    from public.selections s
+    where s.user_id = auth.uid()
+      and s.game_id = g.id
+  )
+  order by random()
+  limit greatest(p_limit, 0);
+$$;
+
+-- ---------- 5. Права доступа (GRANT) ----------
 -- RLS-политик мало! Помимо них роли нужны обычные права на таблицу,
 -- иначе Postgres отвечает "permission denied for table ...".
 -- Обычно Supabase выдаёт их новым таблицам сама, но если таблица
@@ -92,6 +119,8 @@ grant select, insert         on public.selections to authenticated;
 
 -- Колонки id у games/selections — identity, для insert нужны sequence-права.
 grant usage, select on all sequences in schema public to authenticated;
+
+grant execute on function public.get_available_games(int) to authenticated;
 
 -- ============================================================
 -- Готово. После выполнения:
