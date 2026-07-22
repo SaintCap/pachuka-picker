@@ -9,9 +9,19 @@
   const $ = (s) => document.querySelector(s);
 
   /* ---------------- Supabase ---------------- */
-  const hasConfig = !!(window.SUPABASE_URL && window.SUPABASE_ANON_KEY);
+  /* Клиенту нужен ТОЛЬКО базовый адрес проекта (https://xxx.supabase.co).
+     Пути /rest/v1, /auth/v1 он дописывает сам. Если в конфиг случайно
+     попал адрес с путём — обрезаем, иначе сервер отвечает
+     "Invalid path specified in request URL". */
+  function normalizeSupabaseUrl(url) {
+    if (!url) return url;
+    return String(url).trim().replace(/\/+$/, "").replace(/\/(rest|auth|storage|realtime)\/v\d+$/i, "");
+  }
+
+  const supabaseUrl = normalizeSupabaseUrl(window.SUPABASE_URL);
+  const hasConfig = !!(supabaseUrl && window.SUPABASE_ANON_KEY);
   const supabaseClient = hasConfig
-    ? window.supabase.createClient(window.SUPABASE_URL, window.SUPABASE_ANON_KEY)
+    ? window.supabase.createClient(supabaseUrl, window.SUPABASE_ANON_KEY)
     : null;
 
   let currentUser = null;
