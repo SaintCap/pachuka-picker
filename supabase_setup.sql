@@ -79,6 +79,20 @@ create policy "selections: insert own"
 -- update/delete тоже намеренно без policy: выбор нельзя отменить или
 -- переписать через сайт (только через Table Editor вручную, если понадобится).
 
+-- ---------- 4. Права доступа (GRANT) ----------
+-- RLS-политик мало! Помимо них роли нужны обычные права на таблицу,
+-- иначе Postgres отвечает "permission denied for table ...".
+-- Обычно Supabase выдаёт их новым таблицам сама, но если таблица
+-- создавалась нестандартно — выдаём явно.
+grant usage on schema public to anon, authenticated;
+
+grant select, insert, update on public.profiles   to authenticated;
+grant select                 on public.games      to authenticated;
+grant select, insert         on public.selections to authenticated;
+
+-- Колонки id у games/selections — identity, для insert нужны sequence-права.
+grant usage, select on all sequences in schema public to authenticated;
+
 -- ============================================================
 -- Готово. После выполнения:
 --  - таблица profiles заполняется автоматически при регистрации на сайте

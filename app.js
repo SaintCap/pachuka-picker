@@ -462,6 +462,11 @@
     const { data, error } = await supabaseClient.auth.signUp({ email, password });
     if (error) {
       if (/registered/i.test(error.message)) throw new Error("Такой логин уже занят.");
+      if (/signups are disabled|signup is disabled/i.test(error.message)) {
+        throw new Error(
+          "Регистрация выключена в настройках Supabase. Включи Email-провайдер и опцию «Allow new users to sign up» (Authentication → Sign In / Providers)."
+        );
+      }
       throw new Error(error.message);
     }
     let user = data.user;
@@ -495,7 +500,7 @@
     return data.user;
   }
 
-  async function afterAuthSuccess(user) {
+  async function afterAuthSuccess(user, typedUsername) {
     currentUser = user;
     const { data: profile, error } = await supabaseClient
       .from("profiles")
@@ -503,10 +508,21 @@
       .eq("id", user.id)
       .maybeSingle();
     if (error) console.error(error);
-    /* Запасной вариант для старых аккаунтов без строки в profiles:
-       достаём логин из служебного email. */
-    const fallback = (user.email || "").split("@")[0];
-    applyHomeName((profile && profile.username) || fallback);
+
+    /* Запасной вариант для аккаунтов без строки в profiles
+       (например, если при регистрации не хватало прав на таблицу):
+       берём введённый логин, иначе достаём его из служебного email. */
+    let nickname = profile && profile.username;
+    if (!nickname) {
+      nickname = typedUsername || (user.email || "").split("@")[0];
+      /* Тихо восстанавливаем профиль — если прав всё ещё нет, просто
+         продолжаем работать с никнеймом из логина. */
+      const { error: healErr } = await supabaseClient
+        .from("profiles")
+        .upsert({ id: user.id, username: nickname }, { onConflict: "id" });
+      if (healErr) console.warn("Не удалось восстановить профиль:", healErr.message);
+    }
+    applyHomeName(nickname);
     authForm.reset();
     show("home");
   }
@@ -538,7 +554,7 @@
         ? await handleRegister(username, password)
         : await handleLogin(username, password);
       sfx.select();
-      await afterAuthSuccess(user);
+      await afterAuthSuccess(user, username);
     } catch (err) {
       console.error(err);
       showAuthError(err.message || "Что-то пошло не так, попробуй ещё раз.");
