@@ -328,12 +328,6 @@
     show("list");
   });
  
-  $("#btn-back").addEventListener("click", () => {
-    sfx.click();
-    confirmBar.classList.remove("visible");
-    show("home");
-  });
- 
   $("#btn-confirm").addEventListener("click", reveal);
  
   $("#btn-again").addEventListener("click", () => {

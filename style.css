@@ -264,7 +264,6 @@ h1.glitch {
 #screen-list { justify-content: flex-start; padding-top: 36px; padding-bottom: 140px; }
 
 .list-header { text-align: center; margin-bottom: 34px; width: 100%; max-width: 1100px; position: relative; }
-.list-header .btn-ghost { position: absolute; left: 0; top: 4px; }
 .list-title {
   font-family: var(--font-head);
   font-size: clamp(24px, 4vw, 42px);
@@ -443,7 +442,6 @@ body.shake { animation: shake .5s ease; }
   .screen { padding: 36px 14px; }
   #screen-list { padding-top: 24px; padding-bottom: 120px; }
   .list-header { margin-bottom: 24px; }
-  .list-header .btn-ghost { position: static; margin-bottom: 16px; }
   .list-sub { font-size: 13px; }
   .cards { gap: 14px; }
   .card { padding: 20px 16px 18px; }
