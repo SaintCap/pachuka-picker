@@ -260,6 +260,58 @@ h1.glitch {
 }
 @keyframes hintFloat { 50% { transform: translateY(-4px); opacity: 1; } }
 
+.logout-btn { display: inline-block; margin-top: 30px; }
+
+/* ---------- Авторизация ---------- */
+.auth-content { text-align: center; max-width: 420px; width: 100%; }
+
+.auth-form {
+  margin-top: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  text-align: left;
+}
+.auth-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.auth-field span {
+  font-family: var(--font-head);
+  font-size: 12px;
+  letter-spacing: 2px;
+  color: var(--dim);
+}
+.auth-field input {
+  font-family: var(--font-body);
+  font-size: 16px;
+  color: var(--text);
+  background: rgba(10, 10, 28, .75);
+  border: 1px solid rgba(0, 246, 255, .25);
+  border-radius: 10px;
+  padding: 13px 16px;
+  outline: none;
+  transition: border-color .2s ease, box-shadow .2s ease;
+  cursor: auto;
+}
+.auth-field input::placeholder { color: var(--dim); }
+.auth-field input:focus {
+  border-color: var(--cyan);
+  box-shadow: 0 0 16px rgba(0, 246, 255, .3);
+}
+
+.auth-error {
+  color: var(--magenta);
+  font-size: 13px;
+  letter-spacing: .5px;
+  text-shadow: 0 0 8px rgba(255, 43, 214, .6);
+}
+
+.auth-form .btn-neon { margin-top: 6px; width: 100%; }
+
+#btn-auth-toggle { margin-top: 22px; }
+
 /* ---------- Список ---------- */
 #screen-list { justify-content: flex-start; padding-top: 36px; padding-bottom: 140px; }
 

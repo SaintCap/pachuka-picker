@@ -23,17 +23,48 @@
   <div class="cursor-dot" aria-hidden="true"></div>
   <div class="cursor-ring" aria-hidden="true"></div>
 
+  <!-- ЭКРАН 0: Авторизация -->
+  <section id="screen-auth" class="screen active">
+    <div class="auth-content">
+      <div class="badge">// SECRET GAME TERMINAL v2.077</div>
+      <h1 class="glitch" data-text="ДОСТУП ОГРАНИЧЕН">ДОСТУП&nbsp;ОГРАНИЧЕН</h1>
+      <p class="subtitle" id="auth-subtitle">Войди по логину и паролю, чтобы продолжить.</p>
+
+      <form id="auth-form" class="auth-form" autocomplete="on">
+        <label class="auth-field">
+          <span>Логин</span>
+          <input id="auth-username" type="text" autocomplete="username" required minlength="3" maxlength="20" />
+        </label>
+        <label class="auth-field" id="auth-name-field" hidden>
+          <span>Имя</span>
+          <input id="auth-name" type="text" autocomplete="name" maxlength="30" />
+        </label>
+        <label class="auth-field">
+          <span>Пароль</span>
+          <input id="auth-password" type="password" autocomplete="current-password" required minlength="6" maxlength="72" />
+        </label>
+        <p id="auth-error" class="auth-error" hidden></p>
+        <button id="btn-auth-submit" class="btn-neon btn-start" type="submit">
+          <span class="btn-glow"></span>
+          <span class="btn-label" id="auth-submit-label">▶ ВОЙТИ</span>
+        </button>
+      </form>
+      <button id="btn-auth-toggle" class="btn-ghost" type="button">Нет аккаунта? Зарегистрироваться</button>
+    </div>
+  </section>
+
   <!-- ЭКРАН 1: Главная -->
-  <section id="screen-home" class="screen active">
+  <section id="screen-home" class="screen">
     <div class="home-content">
       <div class="badge">// SECRET GAME TERMINAL v2.077</div>
-      <h1 class="glitch" data-text="ПАЧУКА, ГОТОВ ВЫБИРАТЬ!">ПАЧУКА,&nbsp;ГОТОВ ВЫБИРАТЬ!</h1>
+      <h1 class="glitch" id="home-title" data-text="ПАЧУКА, ГОТОВ ВЫБИРАТЬ!">ПАЧУКА,&nbsp;ГОТОВ ВЫБИРАТЬ!</h1>
       <p class="subtitle">Секретный терминал подобрал для тебя игры. Названия зашифрованы — выбирай сердцем.</p>
       <button id="btn-start" class="btn-neon btn-start" type="button">
         <span class="btn-glow"></span>
         <span class="btn-label">▶ НАЧАТЬ ВЫБОР</span>
       </button>
       <div class="hint">нажми, если осмелишься</div>
+      <button id="btn-logout" class="btn-ghost logout-btn" type="button">выйти</button>
     </div>
   </section>
 
@@ -72,7 +103,8 @@
 
   <div class="flash" id="flash" aria-hidden="true"></div>
 
-  <script src="games.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="config.js"></script>
   <script src="app.js"></script>
 </body>
 </html>
