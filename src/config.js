@@ -15,7 +15,10 @@ export function normalizeSupabaseUrl(url) {
 
 export function readConfig() {
   const url = normalizeSupabaseUrl(window.SUPABASE_URL);
-  const key = window.SUPABASE_ANON_KEY;
+  /* Публичный клиентский ключ. Поддерживаем и новый publishable-ключ
+     (sb_publishable_...), и legacy anon-ключ — supabase-js принимает
+     оба одинаково, так что миграция сводится к замене значения. */
+  const key = window.SUPABASE_KEY || window.SUPABASE_ANON_KEY;
   return { url, key, ok: !!(url && key) };
 }
 

@@ -6,11 +6,15 @@
    Для локального теста:
    1. Скопируй этот файл в config.js (config.js в .gitignore, в репозиторий
       не попадёт).
-   2. Впиши свои значения из Supabase → Project Settings → API.
+   2. Впиши свои значения из Supabase → Settings → API Keys.
    ============================================================ */
 
 /* ВАЖНО: только базовый адрес проекта, БЕЗ /rest/v1 и прочих путей.
    Правильно:   https://твой-проект.supabase.co
    Неправильно: https://твой-проект.supabase.co/rest/v1/ */
 window.SUPABASE_URL = "https://ТВОЙ-ПРОЕКТ.supabase.co";
-window.SUPABASE_ANON_KEY = "ТВОЙ_ANON_KEY";
+
+/* Публичный клиентский ключ. Новый формат — publishable-ключ
+   (sb_publishable_...). Legacy anon-ключ тоже работает: тогда впиши
+   его сюда же. Никогда не вставляй сюда secret/service_role ключ. */
+window.SUPABASE_KEY = "sb_publishable_ТВОЙ_КЛЮЧ";

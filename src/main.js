@@ -190,7 +190,7 @@ async function boot() {
   if (!config.ok) {
     showFatal(
       "Терминал не настроен. Сообщи администратору сайта.",
-      "config.js отсутствует или не содержит SUPABASE_URL / SUPABASE_ANON_KEY."
+      "config.js отсутствует или не содержит SUPABASE_URL / SUPABASE_KEY."
     );
     return;
   }
