@@ -1,2 +1,4 @@
-config.js
+# Только корневой автогенерируемый config.js (создаётся build-config.sh на Render).
+# Слэш в начале обязателен, иначе правило прячет и src/config.js — исходник.
+/config.js
 node_modules/
