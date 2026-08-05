@@ -27,7 +27,13 @@ const appJs = (() => {
 
 function makeStubSdk({ session = null, failGetSession = false, tables = {}, rpcs = null } = {}) {
   const authCallbacks = [];
-  const state = { session, signedOutCalls: 0, inserts: [], authCallbacks, rpcCalls: [] };
+  const state = {
+    session, signedOutCalls: 0, inserts: [], authCallbacks,
+    rpcCalls: [], metaUpdates: [], signUpMeta: null,
+    /* Сколько раз клиент реально ходил в конкретную таблицу.
+       Нужно, чтобы проверять ОТСУТСТВИЕ лишних запросов. */
+    tableReads: {},
+  };
   const client = {
     auth: {
       async getSession() {
@@ -40,10 +46,21 @@ function makeStubSdk({ session = null, failGetSession = false, tables = {}, rpcs
         state.session = { user };
         return { data: { user, session: state.session }, error: null };
       },
-      async signUp({ email }) {
-        const user = { id: "u1", email };
+      async signUp({ email, options }) {
+        const meta = (options && options.data) || {};
+        state.signUpMeta = meta;
+        const user = { id: "u1", email, user_metadata: meta };
         state.session = { user };
         return { data: { user, session: state.session }, error: null };
+      },
+      /* Кэш ника в метаданных сессии: сюда пишут, чтобы следующий вход
+         обошёлся без запроса в profiles. */
+      async updateUser({ data }) {
+        state.metaUpdates.push(data);
+        if (state.session && state.session.user) {
+          state.session.user.user_metadata = { ...(state.session.user.user_metadata || {}), ...data };
+        }
+        return { data: { user: state.session && state.session.user }, error: null };
       },
       async signOut() { state.signedOutCalls++; state.session = null; return { error: null }; },
     },
@@ -64,7 +81,7 @@ function makeStubSdk({ session = null, failGetSession = false, tables = {}, rpcs
     from(table) {
       const handler = tables[table] || {};
       const q = {
-        select() { return q; },
+        select() { state.tableReads[table] = (state.tableReads[table] || 0) + 1; return q; },
         eq() { return q; },
         not() { return q; },
         order() { return q; },

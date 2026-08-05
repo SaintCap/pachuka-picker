@@ -25,7 +25,15 @@ function adminHint(consoleMessage, userMessage) {
 
 export async function register(username, password) {
   const email = usernameToEmail(username);
-  const { data, error } = await db().auth.signUp({ email, password });
+  /* Логин дублируем в user_metadata: он приезжает вместе с сессией,
+     и при следующих визитах ник не придётся отдельно спрашивать у БД
+     (см. resolveProfile). Строка в profiles всё равно создаётся ниже —
+     именно она держит уникальность логина. */
+  const { data, error } = await db().auth.signUp({
+    email,
+    password,
+    options: { data: { username } },
+  });
 
   if (error) {
     if (/registered/i.test(error.message)) throw new Error("Такой логин уже занят.");
@@ -91,10 +99,53 @@ export function onAuthStateChange(handler) {
   return db().auth.onAuthStateChange(handler);
 }
 
-/* Никнейм = логин. Если строки в profiles нет (например, при регистрации
-   не хватило прав на таблицу), достаём логин из служебного email
-   и тихо восстанавливаем запись. */
+/* Дописывает логин в метаданные сессии, чтобы следующий вход обошёлся
+   без запроса. Ошибку глотаем: это ускорение, а не обязательный шаг. */
+function cacheUsername(username) {
+  /* try/catch, а не только .catch(): у старых сборок SDK метода
+     updateUser может не быть вовсе, и тогда это синхронный TypeError.
+     Уронить им вход было бы обидно — ускорение того не стоит. */
+  try {
+    db().auth.updateUser({ data: { username } }).then(
+      ({ error }) => { if (error) console.warn("Ник не закэширован:", error.message); },
+      (err) => console.warn("Ник не закэширован:", err && err.message)
+    );
+  } catch (e) {
+    console.warn("Ник не закэширован:", e && e.message);
+  }
+}
+
+/* Восстанавливает строку в profiles, если её нет. Не ждём результата:
+   пользователь уже авторизован, и держать его на экране загрузки
+   ради починки служебной таблицы незачем. */
+function healProfile(userId, username) {
+  try {
+    db().from("profiles")
+      .upsert({ id: userId, username }, { onConflict: "id" })
+      .then(
+        (res) => { if (res && res.error) console.warn("Не удалось восстановить профиль:", res.error.message); },
+        (err) => console.warn("Не удалось восстановить профиль:", err && err.message)
+      );
+  } catch (e) {
+    console.warn("Не удалось восстановить профиль:", e && e.message);
+  }
+}
+
+/* Никнейм = логин.
+
+   Раньше здесь на КАЖДОМ старте был отдельный запрос в profiles, и он
+   стоял между «сессия найдена» и показом главной — то есть пользователь
+   ждал лишний round-trip до первого полезного экрана. Теперь ник берётся
+   из user_metadata, которые и так приезжают вместе с сессией: ноль
+   запросов в обычном случае.
+
+   Запрос остаётся только для аккаунтов, заведённых до этой правки
+   (у них метаданных нет) — и такому аккаунту ник тут же кэшируется,
+   так что путь через БД для него отрабатывает ровно один раз. */
 export async function resolveProfile(user, typedUsername) {
+  const cached = user && user.user_metadata && user.user_metadata.username;
+  if (cached) return cached;
+
   const { data: profile, error } = await db()
     .from("profiles")
     .select("username")
@@ -102,13 +153,14 @@ export async function resolveProfile(user, typedUsername) {
     .maybeSingle();
   if (error) console.error(error);
 
-  let nickname = profile && profile.username;
-  if (!nickname) {
-    nickname = typedUsername || (user.email || "").split("@")[0];
-    const { error: healErr } = await db()
-      .from("profiles")
-      .upsert({ id: user.id, username: nickname }, { onConflict: "id" });
-    if (healErr) console.warn("Не удалось восстановить профиль:", healErr.message);
-  }
+  const nickname = (profile && profile.username)
+    || typedUsername
+    || (user.email || "").split("@")[0];
+
+  cacheUsername(nickname);
+  /* Строки в profiles не было (например, при регистрации не хватило
+     прав на таблицу) — восстанавливаем её в фоне. */
+  if (!(profile && profile.username)) healProfile(user.id, nickname);
+
   return nickname;
 }

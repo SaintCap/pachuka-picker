@@ -428,6 +428,57 @@ function check(name, cond, extra = "") {
     check("возвращается обратно", btn.getAttribute("aria-pressed") === "false");
   }
 
+  console.log("\n[26] Ник берётся из сессии — лишнего запроса в profiles нет");
+  {
+    const stub = makeStubSdk({
+      session: { user: { id: "u1", email: "stas@pachuka.local", user_metadata: { username: "Stas" } } },
+    });
+    const r = await boot({ sdk: stub.sdk });
+    check("сразу главный экран", r.activeScreen() === "screen-home", r.activeScreen());
+    check("никнейм подставлен", /STAS/.test(r.text("#home-title")), r.text("#home-title"));
+    check("в profiles не ходили вовсе", !stub.state.tableReads.profiles,
+      "запросов: " + (stub.state.tableReads.profiles || 0));
+  }
+
+  console.log("\n[27] Старый аккаунт без метаданных: ник из БД + кэш на будущее");
+  {
+    const stub = makeStubSdk({
+      session: { user: { id: "u1", email: "stas@pachuka.local" } },
+      tables: { profiles: { single: { data: { username: "Stas" }, error: null } } },
+    });
+    const r = await boot({ sdk: stub.sdk });
+    await r.settle();
+    check("никнейм подставлен", /STAS/.test(r.text("#home-title")), r.text("#home-title"));
+    check("запрос в profiles был ровно один", stub.state.tableReads.profiles === 1,
+      "запросов: " + (stub.state.tableReads.profiles || 0));
+    check("ник записан в метаданные сессии",
+      stub.state.metaUpdates.some((m) => m && m.username === "Stas"),
+      JSON.stringify(stub.state.metaUpdates));
+    check("починка profiles не запускалась — строка на месте",
+      !stub.state.inserts.some((i) => i.table === "profiles"),
+      JSON.stringify(stub.state.inserts));
+  }
+
+  console.log("\n[28] Регистрация кладёт логин в метаданные");
+  {
+    const stub = makeStubSdk({ session: null });
+    const r = await boot({ sdk: stub.sdk });
+    r.window.document.querySelector("#btn-auth-toggle").click();
+    r.window.document.querySelector("#auth-username").value = "pachuka";
+    r.window.document.querySelector("#auth-password").value = "hunter22";
+    r.window.document.querySelector("#auth-form").dispatchEvent(
+      new r.window.Event("submit", { bubbles: true, cancelable: true })
+    );
+    await r.settle(); await r.settle();
+    check("вошли на главную", r.activeScreen() === "screen-home", r.activeScreen());
+    check("логин ушёл в user_metadata при signUp",
+      stub.state.signUpMeta && stub.state.signUpMeta.username === "pachuka",
+      JSON.stringify(stub.state.signUpMeta));
+    check("строка в profiles всё равно создана",
+      stub.state.inserts.some((i) => i.table === "profiles" && i.row.username === "pachuka"),
+      JSON.stringify(stub.state.inserts));
+  }
+
   console.log(`\n${"=".repeat(46)}\nПройдено: ${pass}   Провалено: ${fail}\n${"=".repeat(46)}`);
   process.exit(fail ? 1 : 0);
 })();

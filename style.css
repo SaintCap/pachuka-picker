@@ -47,20 +47,41 @@ body.js-ready .cursor-dot, body.js-ready .cursor-ring { display: block; }
 #bg-canvas { z-index: 0; }
 #fx-canvas { z-index: 50; }
 
+/* Сетка ездила через animation: background-position — это перерисовка
+   слоя 46vh x 200vw каждый кадр, да ещё с mask-image и perspective.
+   Теперь маска и наклон остались на неподвижном контейнере, а едет
+   псевдоэлемент через transform: его двигает композитор, без repaint.
+   Псевдоэлемент выше контейнера на шаг сетки (60px), поэтому в момент
+   сброса анимации рисунок совпадает сам с собой — стыка не видно. */
 .grid-floor {
   position: fixed; left: -50%; right: -50%; bottom: -12vh; height: 46vh;
   z-index: 1; pointer-events: none;
-  background:
-    linear-gradient(transparent 0%, rgba(123, 43, 255, .08) 100%),
-    repeating-linear-gradient(90deg, rgba(0, 246, 255, .16) 0 2px, transparent 2px 80px),
-    repeating-linear-gradient(0deg, rgba(255, 43, 214, .16) 0 2px, transparent 2px 60px);
+  overflow: hidden;
   transform: perspective(420px) rotateX(62deg);
   transform-origin: 50% 100%;
-  animation: gridMove 3.2s linear infinite;
   mask-image: linear-gradient(transparent 0%, #000 55%);
   -webkit-mask-image: linear-gradient(transparent 0%, #000 55%);
 }
-@keyframes gridMove { from { background-position: 0 0, 0 0, 0 0; } to { background-position: 0 0, 0 0, 0 60px; } }
+/* Едут только повторяющиеся слои — у поперечных период 60px, поэтому
+   сдвиг ровно на 60px возвращает рисунок сам в себя. */
+.grid-floor::before {
+  content: "";
+  position: absolute; left: 0; right: 0; top: -60px; bottom: 0;
+  background:
+    repeating-linear-gradient(90deg, rgba(0, 246, 255, .16) 0 2px, transparent 2px 80px),
+    repeating-linear-gradient(0deg, rgba(255, 43, 214, .16) 0 2px, transparent 2px 60px);
+  animation: gridMove 3.2s linear infinite;
+}
+/* Фиолетовая подсветка вдаль — неподвижная и поверх линий, как и была
+   (в исходном background она шла первым, то есть верхним, слоем).
+   Если бы она ехала вместе с сеткой, при сбросе анимации градиент
+   прыгал бы на 60px — сетка это скрывает, плавная заливка нет. */
+.grid-floor::after {
+  content: "";
+  position: absolute; inset: 0;
+  background: linear-gradient(transparent 0%, rgba(123, 43, 255, .08) 100%);
+}
+@keyframes gridMove { to { transform: translate3d(0, 60px, 0); } }
 
 /* mix-blend-mode: multiply на весь экран заставлял браузер композитить
    всё дерево заново на каждом кадре канваса. Поверх тёмного фона тот же
@@ -193,45 +214,78 @@ h1.glitch {
   border: none; border-radius: 14px;
   padding: 20px 52px;
   text-decoration: none;
-  overflow: hidden;
+  /* overflow: hidden убран: он обрезал бы ::after со свечением.
+     Блик теперь режет сам себя — см. .btn-glow ниже. */
   transition: transform .16s ease, box-shadow .16s ease, filter .16s ease;
   box-shadow:
     0 0 22px rgba(0, 246, 255, .55),
     0 0 70px rgba(0, 246, 255, .25),
     inset 0 0 12px rgba(255, 255, 255, .35);
-  animation: btnPulse 2s ease-in-out infinite;
 }
-@keyframes btnPulse {
-  50% { box-shadow: 0 0 34px rgba(0,246,255,.85), 0 0 110px rgba(0,246,255,.4), inset 0 0 16px rgba(255,255,255,.5); }
+
+/* Пульсация свечения раньше была animation по box-shadow с радиусом
+   размытия 110px — то есть большая перерисовка в главном потоке каждый
+   кадр, на каждой кнопке, на всех экранах сразу. Теперь яркий вариант
+   тени лежит на ::after, а мигает только его opacity: это композитор,
+   главный поток не участвует. */
+.btn-neon::after {
+  content: "";
+  position: absolute; inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  box-shadow: 0 0 34px rgba(0,246,255,.85), 0 0 110px rgba(0,246,255,.4), inset 0 0 16px rgba(255,255,255,.5);
+  opacity: 0;
+  animation: glowPulse 2s ease-in-out infinite;
 }
-.btn-neon:hover { transform: translateY(-3px) scale(1.045); filter: brightness(1.12); animation-play-state: paused;
+@keyframes glowPulse { 50% { opacity: 1; } }
+
+.btn-neon:hover { transform: translateY(-3px) scale(1.045); filter: brightness(1.12);
   box-shadow: 0 0 40px rgba(0,246,255,.95), 0 0 130px rgba(0,246,255,.5), inset 0 0 16px rgba(255,255,255,.55); }
+/* На наведении пульсация замирает — ровно как раньше замирал btnPulse. */
+.btn-neon:hover::after { animation-play-state: paused; }
 .btn-neon:active { transform: translateY(1px) scale(.97); }
 .btn-neon .btn-label { position: relative; z-index: 2; }
+
+/* Обёртка блика: она же и обрезает его по форме кнопки, поэтому
+   overflow: hidden больше не нужен на самой кнопке. */
 .btn-neon .btn-glow {
-  position: absolute; top: 0; left: -120%;
+  position: absolute; inset: 0;
+  overflow: hidden;
+  border-radius: inherit;
+  pointer-events: none;
+}
+/* Блик ездил через animation: left — это layout на каждом кадре.
+   Та же траектория на transform считается композитором.
+   Ширина блика 60% кнопки, поэтому -120%/160% ширины КНОПКИ
+   превращаются в -200%/266.67% собственной ширины. */
+.btn-neon .btn-glow::before {
+  content: "";
+  position: absolute; top: 0; left: 0;
   width: 60%; height: 100%;
   background: linear-gradient(100deg, transparent, rgba(255,255,255,.75), transparent);
-  transform: skewX(-20deg);
+  transform: translate3d(-200%, 0, 0) skewX(-20deg);
   animation: sheen 2.6s ease-in-out infinite;
 }
-@keyframes sheen { 0%, 35% { left: -120%; } 70%, 100% { left: 160%; } }
+@keyframes sheen {
+  0%, 35%   { transform: translate3d(-200%, 0, 0) skewX(-20deg); }
+  70%, 100% { transform: translate3d(266.67%, 0, 0) skewX(-20deg); }
+}
 
 .btn-confirm {
   background: linear-gradient(100deg, var(--magenta), #ff7bea);
   box-shadow: 0 0 22px rgba(255,43,214,.6), 0 0 70px rgba(255,43,214,.3), inset 0 0 12px rgba(255,255,255,.35);
 }
 .btn-confirm:hover { box-shadow: 0 0 40px rgba(255,43,214,.95), 0 0 130px rgba(255,43,214,.5), inset 0 0 16px rgba(255,255,255,.55); }
-@keyframes btnPulseM {
-  50% { box-shadow: 0 0 34px rgba(255,43,214,.9), 0 0 110px rgba(255,43,214,.45), inset 0 0 16px rgba(255,255,255,.5); }
+.btn-confirm::after {
+  box-shadow: 0 0 34px rgba(255,43,214,.9), 0 0 110px rgba(255,43,214,.45), inset 0 0 16px rgba(255,255,255,.5);
+  animation-duration: 1.6s;
 }
-.btn-confirm { animation: btnPulseM 1.6s ease-in-out infinite; }
 
 .btn-steam {
   background: linear-gradient(100deg, var(--lime), #7bff9e);
   box-shadow: 0 0 22px rgba(182,255,43,.55), 0 0 70px rgba(182,255,43,.25), inset 0 0 12px rgba(255,255,255,.35);
-  animation: none;
 }
+.btn-steam::after { animation: none; }
 .btn-steam:hover { box-shadow: 0 0 40px rgba(182,255,43,.95), 0 0 130px rgba(182,255,43,.5), inset 0 0 16px rgba(255,255,255,.55); }
 
 .btn-ghost {
@@ -586,26 +640,36 @@ h1.glitch {
   opacity: 1; /* .selected перебивает входную анимацию — фиксируем видимость явно */
   border-color: var(--magenta);
   box-shadow: 0 0 34px rgba(255, 43, 214, .5), inset 0 0 40px rgba(255, 43, 214, .08);
-  animation: selectedPulse 1.4s ease-in-out infinite;
+  animation: none; /* обрываем вылет, если карточку выбрали на лету */
 }
-@keyframes selectedPulse {
-  50% { box-shadow: 0 0 50px rgba(255,43,214,.75), inset 0 0 46px rgba(255,43,214,.12); }
+/* Как и у кнопок: пульсирует opacity готовой тени, а не сама тень. */
+.card.selected::after {
+  content: "";
+  position: absolute; inset: -1px;
+  border-radius: inherit;
+  pointer-events: none;
+  box-shadow: 0 0 50px rgba(255,43,214,.75), inset 0 0 46px rgba(255,43,214,.12);
+  opacity: 0;
+  animation: glowPulse 1.4s ease-in-out infinite;
 }
 .card.selected .card-id { color: var(--magenta); text-shadow: 0 0 8px rgba(255,43,214,.8); }
 .card.selected .card-status { color: var(--magenta); text-shadow: 0 0 8px rgba(255,43,214,.7); }
 
 /* ---------- Бар подтверждения ---------- */
+/* Бар выезжал через transition по bottom — это layout на каждом кадре
+   выезда. transform даёт ту же траекторию силами композитора. */
 .confirm-bar {
   position: fixed;
-  left: 0; right: 0; bottom: -120px;
+  left: 0; right: 0; bottom: 0;
   display: flex; justify-content: center;
   padding: 18px 20px 26px;
   z-index: 40;
   background: linear-gradient(transparent, rgba(4, 4, 14, .88) 40%);
-  transition: bottom .45s cubic-bezier(.2, .9, .25, 1.25);
+  transform: translate3d(0, 120%, 0);
+  transition: transform .45s cubic-bezier(.2, .9, .25, 1.25);
   pointer-events: none;
 }
-.confirm-bar.visible { bottom: 0; pointer-events: auto; }
+.confirm-bar.visible { transform: none; pointer-events: auto; }
 
 /* ---------- Раскрытие ---------- */
 .reveal-content { text-align: center; max-width: 860px; }

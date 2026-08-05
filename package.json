@@ -5,7 +5,10 @@
   "description": "Терминал выбора игры: зашифрованные досье, выбор и раскрытие с эффектами",
   "scripts": {
     "test": "node tests/run-tests.js",
-    "start": "python3 -m http.server 8000"
+    "test:dist": "node build.js && ROOT=dist node tests/run-tests.js",
+    "build": "node build.js",
+    "start": "python3 -m http.server 8000",
+    "preview": "node build.js && cp config.js dist/ 2>/dev/null; cd dist && python3 -m http.server 8001"
   },
   "devDependencies": {
     "esbuild": "^0.28.1",
