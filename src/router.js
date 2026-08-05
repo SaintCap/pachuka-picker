@@ -25,8 +25,13 @@ export function isNavigable(name) {
 }
 
 /* Простое переключение без записи в историю — для служебных экранов
-   (загрузка, сбой) и для случаев, когда история уже верна. */
-export function show(name) {
+   (загрузка, сбой) и для случаев, когда история уже верна.
+
+   reenter: false возвращает на экран, не запуская его onEnter. Нужно,
+   когда содержимое экрана уже на месте и перезагружать его нельзя —
+   например, после отказа от особого досье список должен остаться тем
+   же, чтобы человек увидел, как рассыпается именно эта карточка. */
+export function show(name, { reenter = true } = {}) {
   const target = screens.get(name);
   if (!target) throw new Error("Неизвестный экран: " + name);
 
@@ -35,11 +40,11 @@ export function show(name) {
   current = name;
 
   scrollTo({ top: 0, behavior: "instant" });
-  if (target.onEnter) target.onEnter();
+  if (reenter && target.onEnter) target.onEnter();
   onEnterHook(name);
 }
 
-export function navigate(name, { replace = false } = {}) {
+export function navigate(name, { replace = false, reenter = true } = {}) {
   const allowed = guard(name);
   const final = allowed || name;
 
@@ -56,7 +61,7 @@ export function navigate(name, { replace = false } = {}) {
     history.replaceState({ screen: final }, "", location.pathname + location.search);
   }
 
-  show(final);
+  show(final, { reenter });
 }
 
 function screenFromLocation() {

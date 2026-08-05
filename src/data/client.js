@@ -27,6 +27,15 @@ export function isAuthError(error) {
   return /jwt|token|not authenticated|session/i.test(error.message || "");
 }
 
+/* Колонки нет в таблице: база отстала от кода (например, ещё не
+   выполнен свежий supabase_setup.sql с особыми досье). Отличаем,
+   чтобы переспросить по-старому, а не показывать сбой. */
+export function isMissingColumn(error) {
+  if (!error) return false;
+  if (String(error.code || "") === "42703") return true;
+  return /column .* does not exist|could not find the .* column/i.test(error.message || "");
+}
+
 /* PostgREST так сообщает, что функции нет в схеме — значит,
    supabase_setup.sql на этой базе ещё не обновляли. */
 export function isMissingFunction(error) {

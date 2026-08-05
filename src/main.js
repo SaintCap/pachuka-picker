@@ -18,6 +18,7 @@ import { toast } from "./ui/toast.js";
 import * as cards from "./ui/cards.js";
 import * as authScreen from "./ui/authScreen.js";
 import * as revealScreen from "./ui/revealScreen.js";
+import * as specialScreen from "./ui/specialScreen.js";
 import * as historyScreen from "./ui/historyScreen.js";
 import * as soundToggle from "./ui/soundToggle.js";
 
@@ -49,8 +50,14 @@ async function goToList() {
   cards.message("Загружаю досье...");
 
   let result;
+  let special = { ok: true, game: null };
   try {
-    result = await gamesApi.loadAvailable(LIST_SIZE);
+    /* Оба запроса уходят разом: особое досье — отдельная выборка,
+       но ждать её после основной значило бы удвоить время загрузки. */
+    [result, special] = await Promise.all([
+      gamesApi.loadAvailable(LIST_SIZE),
+      gamesApi.loadSpecial(),
+    ]);
   } catch (err) {
     console.error(err);
     result = { ok: false, error: err };
@@ -69,12 +76,23 @@ async function goToList() {
     return;
   }
 
-  cards.render(result.games);
+  cards.render(result.games, special.game);
 }
 
 async function confirmSelection() {
   const game = cards.selected();
   if (!game || !auth.isSignedIn()) return;
+
+  /* Особое досье в этот момент ещё НЕ записывается: у человека впереди
+     соглашение, от которого он вправе отказаться, а «Пасую» не должно
+     оставлять следа в истории. Запись — в acceptOath. */
+  if (game.isSpecial) {
+    sfx.click();
+    specialScreen.prepare(game);
+    router.navigate("special");
+    specialScreen.begin();
+    return;
+  }
 
   const btn = $("#btn-confirm");
   btn.disabled = true;
@@ -105,6 +123,54 @@ async function confirmSelection() {
   revealScreen.celebrate();
 }
 
+/* ---------------- Особое досье ---------------- */
+/* «Я СДЕЛАЮ ЭТО»: только здесь игра попадает в историю.
+   Возвращаем успех — экран решает, показывать победу или дать
+   нажать ещё раз. */
+async function acceptOath(game) {
+  let res;
+  try {
+    res = await gamesApi.saveSelection(game.id);
+  } catch (err) {
+    res = { ok: false, error: err };
+  }
+
+  if (!res.ok) {
+    console.error(res.error);
+    if (isAuthError(res.error)) { handleSessionLost(); return false; }
+    toast("Соглашение не скрепилось — проверь соединение и попробуй ещё раз.", {
+      kind: "error",
+    });
+    return false;
+  }
+  return true;
+}
+
+/* «Пасую»: в историю не идёт, но и предлагать это досье снова нельзя.
+   Ошибку записи не выносим на экран: сцена позора уже идёт, а в худшем
+   случае досье просто выпадет ещё раз. */
+async function refuseOath(game) {
+  try {
+    const res = await gamesApi.refuseSpecial(game.id);
+    if (!res.ok) console.error(res.error);
+  } catch (err) {
+    console.error(err);
+  }
+}
+
+function leaveOath({ refused = false } = {}) {
+  specialScreen.clear();
+  if (refused) {
+    /* Возвращаемся к тому же списку, а не к новому: человек должен
+       увидеть, как именно ЭТА табличка рассыпается. Поэтому без
+       перезагрузки списка. */
+    router.navigate("list", { reenter: false });
+    cards.dismissSpecial();
+  } else {
+    router.navigate("list");
+  }
+}
+
 /* ---------------- Сессия ---------------- */
 function applyHomeName(nickname) {
   const label = (nickname || "ПАЧУКА").toUpperCase();
@@ -126,6 +192,7 @@ function resetToAuth(message) {
   auth.setUser(null);
   cards.reset();
   revealScreen.clear();
+  specialScreen.clear();
   listRequestId++; // обесцениваем незавершённые загрузки
   authScreen.reset();
   if (message) authScreen.showError(message);
@@ -146,6 +213,9 @@ function guard(name) {
   /* На раскрытие нельзя попасть по адресу или кнопкой «Вперёд»:
      игра уже записана, показывать нечего. */
   if (name === "reveal" && !revealScreen.hasReveal()) return "home";
+  /* То же и для соглашения: без открытого досье экран пуст, а по адресу
+     на него попасть — значит увидеть кнопки решения без самого решения. */
+  if (name === "special" && !specialScreen.hasOath()) return "home";
   return null;
 }
 
@@ -157,6 +227,7 @@ function setupScreens() {
   router.registerScreen("home", $("#screen-home"), { navigable: true });
   router.registerScreen("list", $("#screen-list"), { navigable: true, onEnter: goToList });
   router.registerScreen("reveal", $("#screen-reveal"), { navigable: true, onEnter: revealScreen.restore });
+  router.registerScreen("special", $("#screen-special"), { navigable: true, onEnter: specialScreen.restore });
   router.registerScreen("history", $("#screen-history"), { navigable: true, onEnter: historyScreen.load });
   router.setGuard(guard);
 }
@@ -251,6 +322,7 @@ setupScreens();
 cards.init({ onChange: () => {} });
 authScreen.init({ onSuccess: afterAuthSuccess });
 revealScreen.init();
+specialScreen.init({ onAccept: acceptOath, onRefuse: refuseOath, onLeave: leaveOath });
 historyScreen.init({ onSessionLost: handleSessionLost });
 setupButtons();
 

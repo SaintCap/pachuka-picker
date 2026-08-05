@@ -31,13 +31,15 @@ export function spawnTrail(x, y) {
   trim();
 }
 
-export function explode(x, y, count = 160) {
+/* hues задаёт палитру взрыва: у особого досье она своя (алая и золотая),
+   чтобы событие читалось как другое, ещё до того, как прочитан текст. */
+export function explode(x, y, count = 160, { hues = BURST_HUES, speed = 1 } = {}) {
   /* При включённом «уменьшить движение» салют остаётся, но скромнее. */
   if (reducedMotion) count = Math.min(count, 24);
 
   for (let i = 0; i < count; i++) {
     const ang = Math.random() * Math.PI * 2;
-    const sp = Math.random() * 11 + 2;
+    const sp = (Math.random() * 11 + 2) * speed;
     particles.push({
       x, y,
       vx: Math.cos(ang) * sp,
@@ -45,9 +47,52 @@ export function explode(x, y, count = 160) {
       life: 1,
       decay: 0.006 + Math.random() * 0.012,
       r: Math.random() * 3.4 + 1,
-      hue: BURST_HUES[(Math.random() * BURST_HUES.length) | 0],
+      hue: hues[(Math.random() * hues.length) | 0],
       grav: 0.12,
       spark: Math.random() < 0.3,
+    });
+  }
+  trim();
+}
+
+/* Кольцо-ударная волна: частицы летят строго по окружности с одинаковой
+   скоростью. Используется, когда на экран «падает печать». */
+export function shockwave(x, y, count = 90, { hue = 12, speed = 9 } = {}) {
+  if (reducedMotion) count = Math.min(count, 18);
+
+  for (let i = 0; i < count; i++) {
+    const ang = (Math.PI * 2 * i) / count;
+    particles.push({
+      x, y,
+      vx: Math.cos(ang) * speed,
+      vy: Math.sin(ang) * speed,
+      life: 1,
+      decay: 0.02 + Math.random() * 0.01,
+      r: Math.random() * 2 + 1.4,
+      hue,
+      grav: 0,
+      spark: true,
+    });
+  }
+  trim();
+}
+
+/* Осыпающийся прах: медленно падает вниз широкой полосой.
+   Визуальный эквивалент фразы «какой позор». */
+export function ashes(x, y, width, count = 70) {
+  if (reducedMotion) count = Math.min(count, 14);
+
+  for (let i = 0; i < count; i++) {
+    particles.push({
+      x: x + (Math.random() - 0.5) * width,
+      y: y + (Math.random() - 0.5) * 40,
+      vx: (Math.random() - 0.5) * 1.2,
+      vy: Math.random() * 1.4 + 0.4,
+      life: 1,
+      decay: 0.005 + Math.random() * 0.006,
+      r: Math.random() * 2.2 + 0.8,
+      hue: 18, // тлеющий уголь, а не неон
+      grav: 0.05,
     });
   }
   trim();

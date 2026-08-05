@@ -117,6 +117,11 @@
          карточки) — без этого скринридер не узнает о смене состояния -->
     <div id="cards" class="cards" role="group"
          aria-label="Зашифрованные досье игр" aria-live="polite"></div>
+    <!-- Особое досье живёт отдельным блоком под сеткой и по центру:
+         в grid оно попало бы в общий поток и потерялось бы среди равных.
+         Пустой блок ничего не занимает — особой игры может и не быть. -->
+    <div id="special-slot" class="special-slot" role="group"
+         aria-label="Особое досье" aria-live="polite"></div>
     <div id="confirm-bar" class="confirm-bar">
       <button id="btn-confirm" class="btn-neon btn-confirm" type="button">
         <span class="btn-glow"></span>
@@ -140,6 +145,53 @@
         <span class="btn-label">🚀 ОТКРЫТЬ В STEAM</span>
       </a>
       <button id="btn-again" class="btn-ghost" type="button">↺ выбрать другую</button>
+    </div>
+  </section>
+
+  <!-- ЭКРАН 3b: Особое досье и дополнительное соглашение.
+
+       Отдельный экран, а не режим #screen-reveal: здесь другой порядок
+       событий (название → пауза → условие → решение) и выбор ещё не
+       записан — он записывается только после «Я СДЕЛАЮ ЭТО». -->
+  <section id="screen-special" class="screen">
+    <div class="oath-content">
+      <div class="oath-topline">// ПЕЧАТЬ СНЯТА · ПРОТОКОЛ ОСОБОГО ДОСЬЕ</div>
+
+      <div class="oath-frame">
+        <div class="oath-scan" aria-hidden="true"></div>
+        <div class="oath-label">ИГРА:</div>
+        <h2 id="oath-name" class="oath-name"></h2>
+      </div>
+
+      <!-- Соглашение появляется только после того, как название дочитано -->
+      <section id="oath-pact" class="oath-pact" hidden aria-live="polite">
+        <div class="oath-pact-head">
+          <span class="oath-pact-line" aria-hidden="true"></span>
+          <span>ДОПОЛНИТЕЛЬНОЕ СОГЛАШЕНИЕ</span>
+          <span class="oath-pact-line" aria-hidden="true"></span>
+        </div>
+        <p class="oath-pact-lead">Играя в эту игру, ты обязуешься:</p>
+        <p id="oath-text" class="oath-pact-text"></p>
+      </section>
+
+      <div id="oath-actions" class="oath-actions" hidden>
+        <button id="btn-oath-refuse" class="btn-oath btn-oath-no" type="button">
+          <span class="btn-label">✕ ПАСУЮ</span>
+        </button>
+        <button id="btn-oath-accept" class="btn-oath btn-oath-yes" type="button">
+          <span class="btn-label">✔ Я СДЕЛАЮ ЭТО</span>
+        </button>
+      </div>
+
+      <div id="oath-verdict" class="oath-verdict" role="status" aria-live="assertive"></div>
+
+      <div id="oath-after" class="oath-after" hidden>
+        <a id="oath-link" class="btn-neon btn-steam" href="#" target="_blank" rel="noopener noreferrer">
+          <span class="btn-glow"></span>
+          <span class="btn-label">🚀 ОТКРЫТЬ В STEAM</span>
+        </a>
+        <button id="btn-oath-done" class="btn-ghost" type="button">↺ вернуться к досье</button>
+      </div>
     </div>
   </section>
 

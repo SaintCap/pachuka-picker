@@ -62,6 +62,7 @@ export async function load() {
 
   res.items.forEach((item, i) => {
     const li = el("li", "history-item");
+    if (item.isSpecial) li.classList.add("history-special");
     li.appendChild(el("span", "history-num", String(i + 1).padStart(2, "0")));
 
     const body = el("div", "history-body");
@@ -71,6 +72,16 @@ export async function load() {
     link.rel = "noopener noreferrer";
     body.appendChild(link);
     body.appendChild(el("span", "history-date", formatDate(item.selectedAt)));
+
+    /* Взятое соглашение показываем прямо в архиве: человек его на себя
+       принял, значит должен иметь возможность перечитать условие,
+       а не вспоминать его по памяти посреди игры. */
+    if (item.isSpecial && item.agreement) {
+      const pact = el("p", "history-pact");
+      pact.appendChild(el("span", "history-pact-tag", "ДОП. СОГЛАШЕНИЕ"));
+      pact.appendChild(el("span", "history-pact-text", item.agreement));
+      body.appendChild(pact);
+    }
 
     li.appendChild(body);
     ol.appendChild(li);

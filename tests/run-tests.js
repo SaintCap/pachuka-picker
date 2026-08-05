@@ -299,7 +299,9 @@ function check(name, cond, extra = "") {
     r.window.document.querySelector("#btn-start").click();
     await r.settle(); await r.settle();
 
-    check("RPC была опробована", stub.state.rpcCalls.length === 1);
+    check("RPC была опробована",
+      stub.state.rpcCalls.filter((c) => c.name === "get_available_games").length === 1,
+      stub.state.rpcCalls.map((c) => c.name).join(", "));
     check("сработал старый путь", legacyHits === 1, legacyHits + " обращений");
     check("пользователь всё равно увидел карточки", !!r.window.document.querySelector(".card"));
   }
@@ -477,6 +479,171 @@ function check(name, cond, extra = "") {
     check("строка в profiles всё равно создана",
       stub.state.inserts.some((i) => i.table === "profiles" && i.row.username === "pachuka"),
       JSON.stringify(stub.state.inserts));
+  }
+
+  /* ---------- Особое досье ----------
+     Сцену прогоняем с включённым «уменьшить движение»: постановка
+     сжимается по времени, но порядок событий остаётся тот же — а
+     проверяем мы именно порядок. */
+  const SPECIAL = {
+    id: 42,
+    name: "DOOM Eternal",
+    description: "Ад пришёл на Землю",
+    steam_url: "https://store.steampowered.com/app/782330/",
+    is_special: true,
+    agreement: "Есть острый орех каждый раз, когда тебя убивают гранатой.",
+  };
+  const CALM = { media: { "(prefers-reduced-motion: reduce)": true } };
+
+  function withSpecial(extra = {}) {
+    return signedIn(Object.assign({
+      rpcs: { get_available_games: { data: [GAME], error: null },
+              get_special_game: { data: [SPECIAL], error: null } },
+    }, extra));
+  }
+
+  /* Доводит сцену до кнопок решения: список → особая карточка →
+     подтверждение → название → соглашение. */
+  async function openOath(r) {
+    r.window.document.querySelector("#btn-start").click();
+    await r.settle(); await r.settle();
+    r.window.document.querySelector(".card-special").click();
+    r.window.document.querySelector("#btn-confirm").click();
+    await r.settle();
+  }
+
+  console.log("\n[29] Особое досье приезжает отдельно и стоит под сеткой");
+  {
+    const stub = makeStubSdk(withSpecial());
+    const r = await boot(Object.assign({ sdk: stub.sdk }, CALM));
+    r.window.document.querySelector("#btn-start").click();
+    await r.settle(); await r.settle();
+
+    const doc = r.window.document;
+    check("особое досье запрошено своей функцией",
+      stub.state.rpcCalls.some((c) => c.name === "get_special_game"),
+      stub.state.rpcCalls.map((c) => c.name).join(", "));
+    check("карточка вынесена из общей сетки", !!doc.querySelector("#special-slot .card-special"));
+    check("в сетку она не попала", !doc.querySelector("#cards .card-special"));
+    check("обычные досье на месте", doc.querySelectorAll("#cards .card").length === 1);
+    check("сказано, что есть условие",
+      /дополнительное соглашение/i.test(r.text(".special-warn") || ""), r.text(".special-warn"));
+    check("само условие до вскрытия не показано",
+      !doc.querySelector("#special-slot").textContent.includes("острый орех"));
+  }
+
+  console.log("\n[30] Порядок сцены: сначала название, потом соглашение, потом кнопки");
+  {
+    const stub = makeStubSdk(withSpecial());
+    const r = await boot(Object.assign({ sdk: stub.sdk }, CALM));
+    await openOath(r);
+    const doc = r.window.document;
+
+    check("экран соглашения, а не обычного раскрытия",
+      r.activeScreen() === "screen-special", r.activeScreen());
+    check("соглашение ещё скрыто, пока идёт название", doc.querySelector("#oath-pact").hidden);
+    check("кнопок решения ещё нет", doc.querySelector("#oath-actions").hidden);
+    check("выбор пока НЕ записан",
+      !stub.state.inserts.some((i) => i.table === "selections"),
+      JSON.stringify(stub.state.inserts));
+
+    /* Ключевой момент: название уже дочитано, а соглашения ещё нет —
+       это и есть пауза на осмысление, ради которой всё затевалось. */
+    await r.wait(400);
+    check("название проявилось целиком", r.text("#oath-name") === SPECIAL.name, r.text("#oath-name"));
+    check("но соглашение всё ещё ждёт — паузу выдержали",
+      doc.querySelector("#oath-pact").hidden);
+
+    await r.wait(900);
+    check("соглашение развернулось", !doc.querySelector("#oath-pact").hidden);
+    check("условие выведено полностью", r.text("#oath-text") === SPECIAL.agreement, r.text("#oath-text"));
+    check("появились обе кнопки", !doc.querySelector("#oath-actions").hidden);
+    check("«Пасую» на месте", /ПАСУЮ/.test(r.text("#btn-oath-refuse")));
+    check("«Я сделаю это» на месте", /Я СДЕЛАЮ ЭТО/.test(r.text("#btn-oath-accept")));
+    check("в историю всё ещё ничего не ушло",
+      !stub.state.inserts.some((i) => i.table === "selections"));
+  }
+
+  console.log("\n[31] «Пасую»: позор, отказ записан, в историю не попало");
+  {
+    const stub = makeStubSdk(withSpecial());
+    const r = await boot(Object.assign({ sdk: stub.sdk }, CALM));
+    await openOath(r);
+    await r.wait(1000);
+
+    r.window.document.querySelector("#btn-oath-refuse").click();
+    await r.settle();
+    check("вынесен приговор", /КАКОЙ ПОЗОР/i.test(r.text("#oath-verdict")), r.text("#oath-verdict"));
+    check("в историю не записали",
+      !stub.state.inserts.some((i) => i.table === "selections"),
+      JSON.stringify(stub.state.inserts));
+    check("отказ сохранён, чтобы досье не выпало снова",
+      stub.state.inserts.some((i) => i.table === "special_refusals" && i.row.game_id === SPECIAL.id),
+      JSON.stringify(stub.state.inserts));
+
+    await r.wait(900);
+    check("вернулись к списку", r.activeScreen() === "screen-list", r.activeScreen());
+    check("табличка исчезла из списка", !r.window.document.querySelector(".card-special"));
+    check("обычные досье остались нетронутыми",
+      r.window.document.querySelectorAll("#cards .card").length === 1);
+  }
+
+  console.log("\n[32] «Я сделаю это»: победа и запись в историю");
+  {
+    const stub = makeStubSdk(withSpecial());
+    const r = await boot(Object.assign({ sdk: stub.sdk }, CALM));
+    await openOath(r);
+    await r.wait(1000);
+
+    r.window.document.querySelector("#btn-oath-accept").click();
+    await r.settle(); await r.settle();
+
+    check("игра записана в историю",
+      stub.state.inserts.some((i) => i.table === "selections" && i.row.game_id === SPECIAL.id),
+      JSON.stringify(stub.state.inserts));
+    check("победный вердикт", /ПРИНЯТО/.test(r.text("#oath-verdict")), r.text("#oath-verdict"));
+    check("отказ не записан", !stub.state.inserts.some((i) => i.table === "special_refusals"));
+    check("ссылка на игру ведёт в Steam",
+      /store\.steampowered\.com/.test(r.window.document.querySelector("#oath-link").href),
+      r.window.document.querySelector("#oath-link").href);
+    check("кнопки решения убраны", r.window.document.querySelector("#oath-actions").hidden);
+  }
+
+  console.log("\n[33] Особая игра не подмешивается в обычную сетку на старой базе");
+  {
+    const stub = makeStubSdk(signedIn({
+      tables: {
+        selections: { select: { data: [], error: null } },
+        games: { select: { data: [GAME, SPECIAL], error: null } },
+      },
+    }));
+    const r = await boot(Object.assign({ sdk: stub.sdk }, CALM));
+    r.window.document.querySelector("#btn-start").click();
+    await r.settle(); await r.settle();
+
+    check("в сетке только обычная игра",
+      r.window.document.querySelectorAll("#cards .card").length === 1,
+      r.window.document.querySelectorAll("#cards .card").length + " шт.");
+    check("без серверной функции особый блок пуст",
+      !r.window.document.querySelector(".card-special"));
+  }
+
+  console.log("\n[34] Сбой сохранения соглашения не теряет решение");
+  {
+    const stub = makeStubSdk(withSpecial({
+      tables: { selections: { insert: { error: { message: "Failed to fetch" } }, select: { data: [], error: null } } },
+    }));
+    const r = await boot(Object.assign({ sdk: stub.sdk }, CALM));
+    await openOath(r);
+    await r.wait(1000);
+
+    r.window.document.querySelector("#btn-oath-accept").click();
+    await r.settle(); await r.settle();
+
+    check("сцена не объявила победу", !/ПРИНЯТО/.test(r.text("#oath-verdict") || ""), r.text("#oath-verdict"));
+    check("человеку сказали про связь", /соединение/i.test(r.text(".toast-text") || ""), r.text(".toast-text"));
+    check("кнопку можно нажать ещё раз",
+      r.window.document.querySelector("#btn-oath-accept").disabled === false);
   }
 
   console.log(`\n${"=".repeat(46)}\nПройдено: ${pass}   Провалено: ${fail}\n${"=".repeat(46)}`);

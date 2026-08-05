@@ -179,6 +179,9 @@ async function boot(scenario = {}) {
   window.console.error = origErr;
 
   const settle = () => new Promise((r) => setTimeout(r, 30));
+  /* Отдельно от settle: сцены с постановкой (особое досье) разворачиваются
+     во времени, и проверять их нужно в конкретные моменты. */
+  const wait = (ms) => new Promise((r) => setTimeout(r, ms));
   await settle(); await settle(); await settle();
 
   return {
@@ -196,6 +199,7 @@ async function boot(scenario = {}) {
       return el ? el.textContent.trim() : null;
     },
     settle,
+    wait,
   };
 }
 
