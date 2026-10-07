@@ -207,6 +207,56 @@ grant usage, select on all sequences in schema public to authenticated;
 grant execute on function public.get_available_games(int) to authenticated;
 grant execute on function public.get_special_game()       to authenticated;
 
+-- ---------- 6. Сброс пароля администратором ----------
+-- Почта у аккаунтов служебная (логин@pachuka.local), письмо со ссылкой
+-- восстановления туда не дойдёт — штатный «Send password recovery»
+-- из Dashboard не поможет. Поэтому пароль меняет администратор прямо
+-- в auth.users, тем же bcrypt, которым его хеширует Supabase Auth.
+--
+-- Вызывать ТОЛЬКО из SQL Editor:
+--   select public.admin_set_password('papapachuca', 'новый_пароль');
+--
+-- Сайту функция недоступна: execute отозван у anon/authenticated
+-- (Supabase по умолчанию раздаёт его на всё новое в public).
+create extension if not exists pgcrypto with schema extensions;
+
+create or replace function public.admin_set_password(p_username text, p_password text)
+returns text
+language plpgsql
+security invoker
+as $$
+declare
+  v_id uuid;
+begin
+  if length(coalesce(p_password, '')) < 6 then
+    raise exception 'Пароль должен быть не короче 6 символов';
+  end if;
+
+  -- Ищем через profiles, а если строки там нет (её мог не создать сбой
+  -- при регистрации) — по служебному адресу.
+  select id into v_id from public.profiles where lower(username) = lower(btrim(p_username));
+  if v_id is null then
+    select id into v_id from auth.users where email = lower(btrim(p_username)) || '@pachuka.local';
+  end if;
+  if v_id is null then
+    raise exception 'Пользователь % не найден', p_username;
+  end if;
+
+  update auth.users
+     set encrypted_password = extensions.crypt(p_password, extensions.gen_salt('bf')),
+         updated_at = now()
+   where id = v_id;
+
+  -- Выкидываем все старые сессии: если пароль сбрасывают из-за угона
+  -- аккаунта, чужой вход не должен пережить смену пароля.
+  delete from auth.sessions where user_id = v_id;
+
+  return 'Пароль обновлён для ' || p_username;
+end;
+$$;
+
+revoke execute on function public.admin_set_password(text, text) from public, anon, authenticated;
+
 -- ============================================================
 -- Готово. После выполнения:
 --  - таблица profiles заполняется автоматически при регистрации на сайте

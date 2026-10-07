@@ -6,7 +6,7 @@ import { register, login, getUser } from "../data/auth.js";
 import { db } from "../data/client.js";
 import { sfx } from "../fx/audio.js";
 
-let form, username, password, usernameLabel, usernameHint;
+let form, username, password, usernameLabel, usernameHint, passwordHint;
 let errorEl, subtitle, submitLabel, toggleBtn, submitBtn;
 let mode = "login";
 let onSuccess = () => {};
@@ -14,6 +14,7 @@ let onSuccess = () => {};
 export function setMode(next) {
   mode = next;
   usernameHint.hidden = next !== "register";
+  passwordHint.hidden = next === "register";
   usernameLabel.textContent = next === "register" ? "Логин (никнейм)" : "Логин";
 
   if (next === "register") {
@@ -59,6 +60,7 @@ export function init({ onSuccess: success }) {
   password = $("#auth-password");
   usernameLabel = $("#auth-username-label");
   usernameHint = $("#auth-username-hint");
+  passwordHint = $("#auth-password-hint");
   errorEl = $("#auth-error");
   subtitle = $("#auth-subtitle");
   submitLabel = $("#auth-submit-label");
